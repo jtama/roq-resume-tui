@@ -1,0 +1,164 @@
+/* Everforest Dark Hard */
+$base: #272e33;
+$surface: #2d353b;
+$overlay: #374145;
+$text: #d3c6aa;
+$subtext: #d3c6aa;
+
+$red: #e67e80;
+$orange: #e69875;
+$yellow: #dbbc7f;
+$green: #a7c080;
+$cyan: #83c092;
+$blue: #7fbbb3;
+$purple: #d699b6;
+
+$highlight: #83c092;
+$border: #56635f;
+$border-focus: #a7c080;
+$error: #e67e80;
+
+/* Global Styles */
+Screen {
+    background: $base;
+    color: $text;
+}
+
+/* Navigation Tabs */
+#nav {
+    height: 3;
+    color: $subtext;
+    border-color: $border;
+}
+
+#nav:focus {
+   border-color: $border-focus;
+   color: $text;
+}
+
+/* Status Bar */
+#status-bar {
+    height: 3;
+    background: $surface;
+    color: $text;
+    border-type: rounded;
+    border-color: $border;
+}
+
+/* Panels */
+Panel {
+    background: $base;
+    color: $text
+    border-type: rounded;
+    border-color: $border;
+    padding: 1;
+}
+
+Panel:focus {
+    border-color: $border-focus;
+}
+
+/* Form Fields */
+.formfield, FormFieldElement {
+    margin-bottom: 1;
+}
+
+.formfield {
+    background: $surface;
+    color: $text;
+    border-type: rounded;
+    border-color: $border;
+    height: 3;
+    padding: 0 1;
+}
+
+.formfield:focus {
+    border-color: $border-focus;
+    color: $text;
+    background: $overlay;
+}
+
+.formfield.error {
+    border-type: rounded;
+    border-color: $error;
+}
+
+FormFieldElement-label {
+    background: $surface;
+    color: $text;
+    border-type: rounded;
+    border-color: $border;
+    height: 3;
+    padding: 0 1;
+}
+
+FormFieldElement-label:focus {
+    color: $subtext;
+}
+
+FormFieldElement-input {
+    background: $surface;
+    color: $text;
+    border-type: rounded;
+    border-color: $border;
+    height: 3;
+    padding: 0 1;
+}
+
+FormFieldElement-input:focus {
+    border-color: $border-focus;
+    color: $text;
+    background: $overlay;
+}
+
+FormFieldElement-input.error {
+    border-type: rounded;
+    border-color: $error;
+}
+
+/* Tables */
+TableElement {
+    background: $surface;
+    color: $text;
+    border-type: rounded;
+    border-color: $border;
+}
+
+TableElement > .table--header {
+    background: $overlay;
+    color: $highlight;
+    text-style: bold;
+}
+
+TableElement > .table--cursor {
+    background: $highlight;
+    color: $base;
+}
+
+/* Dialogs */
+DialogElement {
+    background: $base;
+    border-type: thick;
+    border-color: $highlight;
+    padding: 1 2;
+}
+
+/* Buttons (if any) */
+Button {
+    background: $overlay;
+    color: $text;
+    border: none;
+    height: 3;
+    min-width: 16;
+}
+
+Button:hover {
+    background: $highlight;
+    color: $base;
+}
+
+Button:focus {
+    background: $highlight;
+    color: $base;
+    text-style: bold;
+}

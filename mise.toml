@@ -1,0 +1,17 @@
+[tools]
+java = "temurin-25.0.0+36.0.LTS"
+
+[tasks]
+package = "mvn package"
+
+[tasks."build:native"]
+run = "quarkus build --native --no-tests -Dquarkus.native.container-build=true"
+
+[tasks."start:dev"]
+env = {"ROQ_RESUME_PASSWORD"="password"}
+run = "./mvnw quarkus:dev"
+
+[tasks.start]
+env = {"ROQ_RESUME_PASSWORD"="password"}
+depends = ["package"]
+run = " java -jar target/quarkus-app/quarkus-run.jar"

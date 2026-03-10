@@ -1,0 +1,132 @@
+= roq-resume-editor
+
+This project uses Quarkus, the Supersonic Subatomic Java Framework.
+
+If you want to learn more about Quarkus, please visit its website: https://quarkus.io/[].
+
+== Current Project Status
+
+The application is currently under development. Here is an overview of its current state:
+
+=== Implemented Features
+* *Styling and Theming:* The Text-based User Interface (TUI) has been styled using the TamboUI style engine. Two themes are available: Catppuccin (default) and Everforest. You can switch between themes using the 't' key.
+* *Profile Editing:* The profile screen allows for the modification of basic information (name, job title, contact details, etc.).
+* *Social Links Editing:* The social screen allows users to view, add, and edit a list of links to social networks or websites.
+* *Security:* The local database is encrypted, and a password is required on the first launch.
+
+=== Areas for Improvement and Next Steps
+The current focus is on stabilizing and improving the user experience. The following areas require special attention:
+
+* *Navigation:* Some parts of the application, particularly in the editing screens, do not always respond correctly to navigation (arrow keys, tab). This is a priority.
+* *Bio Editing Screen:* The "Bio" screen is currently a placeholder. It needs to be implemented to allow for the editing of a more detailed biography, potentially with support for multiple entries (e.g., work experience, education).
+* *Export Screen:* A feature to export the resume in YAML format is planned. The screen for managing this export needs to be created, allowing the user to select specific items from their bio (e.g., choosing which professional experiences to include) before generating the file.
+
+== Architecture Overview
+
+The application follows a simple layered architecture, leveraging Quarkus CDI for dependency injection and TamboUI for the user interface.
+
+[plantuml, architecture-diagram, png]
+----
+@startuml
+
+package "UI Layer (TamboUI)" {
+  [Main TUI Loop]
+  [TamboUI Widgets] as Widgets
+  
+  Main -- Widgets
+}
+
+package "Service Layer" {
+  [ResumeRepository]
+  [CryptoService]
+  [YamlExportService]
+}
+
+package "Data Model (Java Records)" {
+  [Profile]
+  [Social]
+  [Bio]
+}
+
+database "Encrypted SQLite DB" {
+  [resume.db.enc]
+}
+
+Main --> ResumeRepository
+Main --> YamlExportService
+Widgets --> ResumeRepository
+ResumeRepository --|> CryptoService
+ResumeRepository --> Profile
+ResumeRepository --> Social
+ResumeRepository --> Bio
+CryptoService --> [resume.db.enc]
+
+@enduml
+----
+
+*   *UI Layer*: Handles all user interaction and rendering. It is built using the declarative TamboUI toolkit and styled via a custom TCSS engine.
+*   *Service Layer*: Contains the business logic. The `ResumeRepository` acts as a facade for all data operations, coordinating with the `CryptoService` to handle the encrypted SQLite database.
+*   *Data Model*: All data structures are implemented as immutable Java Records, ensuring data consistency.
+*   *Persistence*: A single SQLite database file, `resume.db.enc`, stores all application data in an encrypted format.
+
+== Code Practices
+
+*   *Styling*: All styling is managed via TCSS. Each theme (`catpuccin.tcss`, `everforest.tcss`) is self-contained and provides all necessary variables and rules.
+*   *Code Formatting*: Code formatting and import organization are handled automatically by the `spotless-maven-plugin`. This ensures a consistent codebase.
+*   *UI Development*: The UI is built declaratively using the TamboUI Toolkit DSL. State is managed within each widget and coordinated by the `Main` application class.
+*   *Data Modeling*: Java Records are used for all data models to promote immutability and reduce boilerplate code.
+*   *Dependency Management*: Components are managed by Quarkus CDI, using `@Inject` for dependency injection.
+
+== Running the application in dev mode
+
+You can run your application in dev mode that enables live coding using:
+
+[source,shell]
+----
+./mvnw compile quarkus:dev
+----
+
+NOTE: Quarkus now ships with a Dev UI, which is available in dev mode only at http://localhost:8080/q/dev/[].
+
+== Packaging and running the application
+
+The application can be packaged using:
+[source,shell]
+----
+./mvnw package
+----
+
+It produces the `quarkus-run.jar` file in the `target/quarkus-app/` directory.
+Be aware that it’s not an _über-jar_ as the dependencies are copied into the `target/quarkus-app/lib/` directory.
+
+The application is now runnable using `java -jar target/quarkus-app/quarkus-run.jar`.
+
+If you want to build an _über-jar_, execute the following command:
+[source,shell]
+----
+./mvnw package -Dquarkus.package.jar.type=uber-jar
+----
+
+The application, packaged as an _über-jar_, is now runnable using `java -jar target/*-runner.jar`.
+
+== Creating a native executable
+
+You can create a native executable using:
+[source,shell]
+----
+./mvnw package -Dnative
+----
+
+Or, if you don't have GraalVM installed, you can run the native executable build in a container using:
+[source,shell]
+----
+./mvnw package -Dnative -Dquarkus.native.container-build=true
+----
+
+You can then execute your native executable with: `./target/roq-resume-editor-1.0.0-SNAPSHOT-runner`
+
+If you want to learn more about building native executables, please consult https://quarkus.io/guides/maven-tooling[].
+
+== Related Guides
+
+* Agroal - DB connection pool (https://quarkus.io/guides/datasource[guide]): JDBC Datasources and connection pooling
