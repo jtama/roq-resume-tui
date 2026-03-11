@@ -9,7 +9,7 @@ body:
     attributes:
       label: Help needed?
       options:
-        - label: Ask OpenCode to handle this issue
+        - label: /opencode help
   - type: textarea
     id: problem
     attributes:
