@@ -127,6 +127,7 @@ You can then execute your native executable with: `./target/roq-resume-editor-1.
 
 If you want to learn more about building native executables, please consult https://quarkus.io/guides/maven-tooling[].
 
-== Related Guides
+== Contributing
+We welcome contributions! Please read our link:CONTRIBUTING.adoc[Contributing Guide] before submitting a pull request.
 
 * Agroal - DB connection pool (https://quarkus.io/guides/datasource[guide]): JDBC Datasources and connection pooling
