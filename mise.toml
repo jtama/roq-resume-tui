@@ -1,11 +1,14 @@
 [tools]
-java = "temurin-25.0.0+36.0.LTS"
+java = "mandrel-25.0.2.0-Final+java25"
 
-[tasks]
-package = "mvn package"
+[tasks."build"]
+# Enable leyden AOT integration
+env = {"quarkus.package.jar.aot.enabled"="true"}
+run = "mvn package"
 
 [tasks."build:native"]
-run = "quarkus build --native --no-tests -Dquarkus.native.container-build=true"
+#run = "quarkus build --native --no-tests -Dquarkus.native.container-build=true"
+run = "./mvnw package -Pnative"
 
 [tasks."start:dev"]
 env = {"ROQ_RESUME_PASSWORD"="password"}
@@ -13,5 +16,5 @@ run = "./mvnw quarkus:dev"
 
 [tasks.start]
 env = {"ROQ_RESUME_PASSWORD"="password"}
-depends = ["package"]
+depends = ["build"]
 run = " java -jar target/quarkus-app/quarkus-run.jar"

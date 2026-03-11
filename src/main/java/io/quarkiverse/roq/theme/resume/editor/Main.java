@@ -1,6 +1,5 @@
 package io.quarkiverse.roq.theme.resume.editor;
 
-import java.nio.file.Path;
 import java.util.Scanner;
 
 import jakarta.inject.Inject;
@@ -78,10 +77,8 @@ public class Main implements QuarkusApplication {
 
         // --- TUI Loop ---
         StyleEngine styleEngine = StyleEngine.create();
-        styleEngine.loadStylesheet("catpuccin",
-                Path.of("catpuccin.tcss"));
-        styleEngine.loadStylesheet("everforest",
-                Path.of("everforest.tcss"));
+        styleEngine.loadStylesheet("catpuccin", "catpuccin.tcss");
+        styleEngine.loadStylesheet("everforest", "everforest.tcss");
         styleEngine.setActiveStylesheet("catpuccin");
         try (var runner = ToolkitRunner.builder().styleEngine(styleEngine).build()) {
             runner.run(
