@@ -4,11 +4,12 @@ title: '[FEAT] '
 labels:
   - enhancement
 body:
-  - type: markdown
+  - type: checkboxes
+    id: opencode
     attributes:
-      value: |
-        ### Need help?
-        [Ask OpenCode to handle this issue](https://opencode.ai/s/new)
+      label: Help needed?
+      options:
+        - label: Ask OpenCode to handle this issue
   - type: textarea
     id: problem
     attributes:
