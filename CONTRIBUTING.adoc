@@ -1,0 +1,22 @@
+= Contributing to roq-resume-editor
+
+Thank you for your interest in contributing to roq-resume-editor!
+
+== Development Environment
+We use `mise` to manage our development environment. Please ensure you have `mise` installed and run `mise install` to set up the environment.
+
+The project requires Java 25. The `mise.toml` file is configured to use `mandrel-25.0.2.0-Final+java25`.
+
+== Development Workflow
+We have defined several tasks in `mise.toml` to help you:
+
+* `mise run build`: Build the project (enabled leyden AOT integration)
+* `mise run build:native`: Build native executable
+* `mise run start:dev`: Start the application in dev mode
+* `mise run start`: Build and start the application
+
+== Pull Requests
+Please ensure that your PRs are focused, well-documented, and include tests where appropriate.
+Ensure all changes pass the build and tests locally.
+
+We use `spotless-maven-plugin` to enforce code formatting. Run it before submitting your code.
