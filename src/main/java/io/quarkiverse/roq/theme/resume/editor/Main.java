@@ -10,6 +10,7 @@ import dev.tamboui.toolkit.app.ToolkitRunner;
 import dev.tamboui.toolkit.element.Element;
 import dev.tamboui.toolkit.elements.TabsElement;
 import dev.tamboui.toolkit.event.EventResult;
+import dev.tamboui.tui.event.KeyCode;
 import dev.tamboui.widgets.tabs.TabsState;
 
 import static dev.tamboui.toolkit.Toolkit.dock;
@@ -49,7 +50,18 @@ public class Main implements QuarkusApplication {
 
     private TabsState tabsState = new TabsState();
     private TabsElement tabs = tabs("[B]io", "[P]rofile", "[S]ocial").selected(0).focusable().id("nav").divider(" | ")
-            .title(" Navigation ").fill().state(tabsState);
+            .title(" Navigation ").fill().state(tabsState)
+            .onKeyEvent(key -> {
+                if (key.code() == KeyCode.LEFT) {
+                    tabsState.select(Math.max(0, tabsState.selected() - 1));
+                    return EventResult.HANDLED;
+                }
+                if (key.code() == KeyCode.RIGHT) {
+                    tabsState.select(Math.min(2, tabsState.selected() + 1));
+                    return EventResult.HANDLED;
+                }
+                return EventResult.UNHANDLED;
+            });
 
     private String statusMessage = "Press 'a' to add, 'x' to save, 't' to toggle theme, 'q' to exit";
 
