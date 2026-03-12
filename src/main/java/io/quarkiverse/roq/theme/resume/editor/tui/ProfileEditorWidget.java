@@ -11,6 +11,7 @@ import static dev.tamboui.toolkit.Toolkit.column;
 import static dev.tamboui.toolkit.Toolkit.formField;
 import static dev.tamboui.toolkit.Toolkit.panel;
 import static dev.tamboui.toolkit.Toolkit.row;
+import static dev.tamboui.toolkit.Toolkit.text;
 
 import io.quarkiverse.roq.theme.resume.editor.model.Profile;
 import io.quarkiverse.roq.theme.resume.editor.service.ResumeRepository;
@@ -22,14 +23,25 @@ public class ProfileEditorWidget {
     ResumeRepository repository;
 
     private boolean loaded = false;
+    private Long currentResumeId;
 
     // FormState holding all profile data
     private final FormState form = FormState.builder().textField("firstName", "").textField("lastName", "")
             .textField("jobTitle", "").textField("email", "").textField("city", "").textField("country", "")
             .textField("phone", "").textField("site", "").textField("bio", "").textField("picture", "").build();
 
+    public void loadResume(Long resumeId) {
+        currentResumeId = resumeId;
+        loaded = false;
+    }
+
     public void load() {
-        Profile profile = repository.getProfile();
+        if (currentResumeId == null) {
+            clear();
+            loaded = true;
+            return;
+        }
+        Profile profile = repository.getProfile(currentResumeId);
 
         form.setTextValue("firstName", profile.firstName() != null ? profile.firstName() : "");
         form.setTextValue("lastName", profile.lastName() != null ? profile.lastName() : "");
@@ -46,15 +58,21 @@ public class ProfileEditorWidget {
     }
 
     public void save() {
+        if (currentResumeId == null) {
+            return;
+        }
         Profile updated = new Profile(form.textValue("firstName"), form.textValue("lastName"),
                 form.textValue("picture"), form.textValue("jobTitle"), form.textValue("bio"), form.textValue("city"),
                 form.textValue("country"), form.textValue("phone"), form.textValue("email"), form.textValue("site"));
-        repository.saveProfile(updated);
+        repository.saveProfile(currentResumeId, updated);
     }
 
     public Element render() {
         if (!loaded) {
             load();
+        }
+        if (currentResumeId == null) {
+            return panel("Profile Editor", text("Aucun CV charge. Selectionne un CV dans l'onglet Resumes.").yellow()).fill();
         }
 
         // @formatter:off
@@ -149,5 +167,18 @@ public class ProfileEditorWidget {
         )
         .fill();
         // @formatter:on
+    }
+
+    private void clear() {
+        form.setTextValue("firstName", "");
+        form.setTextValue("lastName", "");
+        form.setTextValue("jobTitle", "");
+        form.setTextValue("email", "");
+        form.setTextValue("city", "");
+        form.setTextValue("country", "");
+        form.setTextValue("phone", "");
+        form.setTextValue("site", "");
+        form.setTextValue("bio", "");
+        form.setTextValue("picture", "");
     }
 }

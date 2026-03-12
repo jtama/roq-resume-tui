@@ -22,6 +22,7 @@ import static dev.tamboui.toolkit.Toolkit.dialog;
 import static dev.tamboui.toolkit.Toolkit.formField;
 import static dev.tamboui.toolkit.Toolkit.panel;
 import static dev.tamboui.toolkit.Toolkit.table;
+import static dev.tamboui.toolkit.Toolkit.text;
 
 import io.quarkiverse.roq.theme.resume.editor.model.Social;
 import io.quarkiverse.roq.theme.resume.editor.service.ResumeRepository;
@@ -37,6 +38,7 @@ public class SocialEditorWidget {
 
     private List<SocialItem> items = new ArrayList<>();
     private final TableState tableState = new TableState();
+    private Long currentResumeId;
 
     // Dialog state
     private boolean showDialog = false;
@@ -46,8 +48,19 @@ public class SocialEditorWidget {
     private final FormState dialogState = FormState.builder().textField("name", "name")
             .textField("url", "https://<URL>").build();
 
+    public void loadResume(Long resumeId) {
+        currentResumeId = resumeId;
+        items.clear();
+        tableState.selectFirst();
+        closeDialog();
+    }
+
     public void load() {
-        Social social = repository.getSocial();
+        if (currentResumeId == null) {
+            items.clear();
+            return;
+        }
+        Social social = repository.getSocial(currentResumeId);
         items.clear();
         if (social.items() != null) {
             for (Social.Item item : social.items()) {
@@ -60,8 +73,11 @@ public class SocialEditorWidget {
     }
 
     public void save() {
+        if (currentResumeId == null) {
+            return;
+        }
         List<Social.Item> socialItems = items.stream().map(item -> new Social.Item(item.name(), item.url())).toList();
-        repository.saveSocial(new Social(socialItems));
+        repository.saveSocial(currentResumeId, new Social(socialItems));
     }
 
     public void openAddDialog() {
@@ -111,8 +127,11 @@ public class SocialEditorWidget {
     }
 
     public Element render() {
+        if (currentResumeId == null) {
+            return panel("Social Editor", text("Aucun CV charge. Selectionne un CV dans l'onglet Resumes.").yellow()).fill();
+        }
         if (items.isEmpty()) {
-            var saved = repository.getSocial();
+            var saved = repository.getSocial(currentResumeId);
             if (saved.items() != null && !saved.items().isEmpty()) {
                 load();
             }

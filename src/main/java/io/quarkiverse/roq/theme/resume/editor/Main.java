@@ -10,6 +10,7 @@ import dev.tamboui.toolkit.app.ToolkitRunner;
 import dev.tamboui.toolkit.element.Element;
 import dev.tamboui.toolkit.elements.TabsElement;
 import dev.tamboui.toolkit.event.EventResult;
+import dev.tamboui.tui.event.KeyCode;
 import dev.tamboui.widgets.tabs.TabsState;
 
 import static dev.tamboui.toolkit.Toolkit.dock;
@@ -22,6 +23,7 @@ import io.quarkiverse.roq.theme.resume.editor.service.ResumeRepository;
 import io.quarkiverse.roq.theme.resume.editor.service.YamlExportService;
 import io.quarkiverse.roq.theme.resume.editor.tui.BioEditorWidget;
 import io.quarkiverse.roq.theme.resume.editor.tui.ProfileEditorWidget;
+import io.quarkiverse.roq.theme.resume.editor.tui.ResumeManagerWidget;
 import io.quarkiverse.roq.theme.resume.editor.tui.SocialEditorWidget;
 import io.quarkus.runtime.QuarkusApplication;
 import io.quarkus.runtime.annotations.QuarkusMain;
@@ -47,11 +49,33 @@ public class Main implements QuarkusApplication {
     @Inject
     BioEditorWidget bioEditor;
 
-    private TabsState tabsState = new TabsState();
-    private TabsElement tabs = tabs("[B]io", "[P]rofile", "[S]ocial").selected(0).focusable().id("nav").divider(" | ")
-            .title(" Navigation ").fill().state(tabsState);
+    @Inject
+    ResumeManagerWidget resumeManager;
 
-    private String statusMessage = "Press 'a' to add, 'x' to save, 't' to toggle theme, 'q' to exit";
+    private static final int TAB_COUNT = 4;
+
+    private TabsState tabsState = new TabsState(0);
+    private TabsElement tabs = tabs("[R]esumes", "[B]io", "[P]rofile", "[S]ocial")
+            .selected(0)
+            .focusable()
+            .id("nav")
+            .divider(" | ")
+            .title(" Navigation ")
+            .fill()
+            .state(tabsState)
+            .onKeyEvent(key -> switch (key.code()) {
+                case KeyCode.LEFT -> {
+                    tabsState.select(Math.max(0, tabsState.selected() - 1));
+                    yield EventResult.HANDLED;
+                }
+                case KeyCode.RIGHT -> {
+                    tabsState.select(Math.min(TAB_COUNT - 1, tabsState.selected() + 1));
+                    yield EventResult.HANDLED;
+                }
+                default -> EventResult.UNHANDLED;
+            });
+
+    private String statusMessage = "Resumes: Enter load, 'n' create, '/' search, 't' toggle theme, 'q' exit";
 
     @Override
     public int run(String... args) throws Exception {
@@ -94,35 +118,68 @@ public class Main implements QuarkusApplication {
                                     return EventResult.HANDLED;
                                 }
                                 if (key.isChar('B') || key.isChar('b')) {
-                                    statusMessage = "Press 'a' to add, 'x' to save, 't' to toggle theme, 'q' to exit";
-                                    tabsState.select(0);
+                                    selectTab(1);
                                     return EventResult.HANDLED;
                                 }
                                 if (key.isChar('P') || key.isChar('p')) {
-                                    statusMessage = "Press 'a' to add, 'x' to save, 't' to toggle theme, 'q' to exit";
-                                    tabsState.select(1);
+                                    selectTab(2);
                                     return EventResult.HANDLED;
                                 }
                                 if (key.isChar('S') || key.isChar('s')) {
-                                    statusMessage = "Press 'a' to add, 'x' to save, 't' to toggle theme, 'q' to exit";
-                                    tabsState.select(2);
+                                    selectTab(3);
                                     return EventResult.HANDLED;
                                 }
-                                if (key.isChar('x') && !socialEditor.isDialogOpen()) {
+                                if (key.isChar('R') || key.isChar('r')) {
+                                    selectTab(0);
+                                    return EventResult.HANDLED;
+                                }
+                                if (tabsState.selected() == 0 && !resumeManager.isDialogOpen() && key.isChar('n')) {
+                                    resumeManager.openCreateDialog();
+                                    statusMessage = defaultStatusMessage();
+                                    return EventResult.HANDLED;
+                                }
+                                if (tabsState.selected() == 0 && !resumeManager.isDialogOpen()
+                                        && (key.isChar('/') || key.character() == '/')) {
+                                    resumeManager.openSearchDialog();
+                                    statusMessage = defaultStatusMessage();
+                                    return EventResult.HANDLED;
+                                }
+                                if (tabsState.selected() == 0 && !resumeManager.isDialogOpen() && key.isConfirm()) {
+                                    applyResumeSelection(resumeManager.loadSelectedResume());
+                                    statusMessage = defaultStatusMessage();
+                                    return EventResult.HANDLED;
+                                }
+                                if (key.isChar('x') && !socialEditor.isDialogOpen() && !resumeManager.isDialogOpen()) {
                                     int tab = tabsState.selected();
-                                    if (tab == 2)
+                                    if (tab == 3)
                                         socialEditor.save();
                                     else if (tab == 1)
+                                        bioEditor.save();
+                                    else if (tab == 2)
                                         profileEditor.save();
 
+                                    resumeManager.refresh();
                                     statusMessage = "Saved successfully!";
                                     return EventResult.HANDLED;
                                 }
-                                if (key.isChar('a') && tabsState.selected() == 2 && !socialEditor.isDialogOpen()) {
+                                if (key.isChar('e') && tabsState.selected() == 1) {
+                                    bioEditor.toggleEditMode();
+                                    statusMessage = defaultStatusMessage();
+                                    return EventResult.HANDLED;
+                                }
+                                if (key.isChar('a') && tabsState.selected() == 1 && bioEditor.isEditing()) {
+                                    bioEditor.addItem();
+                                    return EventResult.HANDLED;
+                                }
+                                if (key.isChar('d') && tabsState.selected() == 1 && bioEditor.isEditing()) {
+                                    bioEditor.deleteSelection();
+                                    return EventResult.HANDLED;
+                                }
+                                if (key.isChar('a') && tabsState.selected() == 3 && !socialEditor.isDialogOpen()) {
                                     socialEditor.openAddDialog();
                                     return EventResult.HANDLED;
                                 }
-                                if (key.isChar('e') && tabsState.selected() == 2 && !socialEditor.isDialogOpen()) {
+                                if (key.isChar('e') && tabsState.selected() == 3 && !socialEditor.isDialogOpen()) {
                                     socialEditor.openEditDialog();
                                     return EventResult.HANDLED;
                                 }
@@ -143,14 +200,41 @@ public class Main implements QuarkusApplication {
     }
 
     private Element renderContent() {
+        applyResumeSelection(resumeManager.consumePendingResumeId());
         Integer selected = tabsState.selected();
         int tabIndex = selected != null ? selected : 0;
         return switch (tabIndex) {
-            case 0 -> bioEditor.render();
-            case 1 -> profileEditor.render();
-            case 2 -> socialEditor.render();
-            default -> bioEditor.render();
+            case 0 -> resumeManager.render();
+            case 1 -> bioEditor.render();
+            case 2 -> profileEditor.render();
+            case 3 -> socialEditor.render();
+            default -> resumeManager.render();
         };
+    }
+
+    private void selectTab(int index) {
+        tabsState.select(index);
+        statusMessage = defaultStatusMessage();
+    }
+
+    private String defaultStatusMessage() {
+        return switch (tabsState.selected() != null ? tabsState.selected() : 0) {
+            case 0 -> "Resumes: Enter load, 'n' create, '/' search, 't' toggle theme, 'q' exit";
+            case 1 -> bioEditor.isEditing()
+                    ? "Bio edit mode: 'a' add child, 'd' delete, 'x' save, 'e' leave edit mode"
+                    : "Bio read mode: 'e' edit, 'x' save, 't' toggle theme, 'q' exit";
+            case 3 -> "Social: 'a' add, 'e' edit, 'x' save, 't' toggle theme, 'q' exit";
+            default -> "Press 'e' to edit, 'x' to save, 't' to toggle theme, 'q' to exit";
+        };
+    }
+
+    private void applyResumeSelection(Long resumeId) {
+        if (resumeId == null) {
+            return;
+        }
+        bioEditor.loadResume(resumeId);
+        profileEditor.loadResume(resumeId);
+        socialEditor.loadResume(resumeId);
     }
 
 }
