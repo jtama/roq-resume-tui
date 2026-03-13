@@ -22,6 +22,12 @@ public class ProfileEditorWidget {
     ResumeRepository repository;
 
     private boolean loaded = false;
+    private long resumeId;
+
+    public void setResumeId(long resumeId) {
+        this.resumeId = resumeId;
+        this.loaded = false;
+    }
 
     // FormState holding all profile data
     private final FormState form = FormState.builder().textField("firstName", "").textField("lastName", "")
@@ -29,7 +35,7 @@ public class ProfileEditorWidget {
             .textField("phone", "").textField("site", "").textField("bio", "").textField("picture", "").build();
 
     public void load() {
-        Profile profile = repository.getProfile();
+        Profile profile = repository.getProfile(resumeId);
 
         form.setTextValue("firstName", profile.firstName() != null ? profile.firstName() : "");
         form.setTextValue("lastName", profile.lastName() != null ? profile.lastName() : "");
@@ -49,7 +55,7 @@ public class ProfileEditorWidget {
         Profile updated = new Profile(form.textValue("firstName"), form.textValue("lastName"),
                 form.textValue("picture"), form.textValue("jobTitle"), form.textValue("bio"), form.textValue("city"),
                 form.textValue("country"), form.textValue("phone"), form.textValue("email"), form.textValue("site"));
-        repository.saveProfile(updated);
+        repository.saveProfile(resumeId, updated);
     }
 
     public Element render() {

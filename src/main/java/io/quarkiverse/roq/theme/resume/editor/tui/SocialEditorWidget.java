@@ -37,6 +37,13 @@ public class SocialEditorWidget {
 
     private List<SocialItem> items = new ArrayList<>();
     private final TableState tableState = new TableState();
+    private long resumeId;
+    private boolean loaded = false;
+
+    public void setResumeId(long resumeId) {
+        this.resumeId = resumeId;
+        this.loaded = false;
+    }
 
     // Dialog state
     private boolean showDialog = false;
@@ -47,7 +54,7 @@ public class SocialEditorWidget {
             .textField("url", "https://<URL>").build();
 
     public void load() {
-        Social social = repository.getSocial();
+        Social social = repository.getSocial(resumeId);
         items.clear();
         if (social.items() != null) {
             for (Social.Item item : social.items()) {
@@ -57,11 +64,12 @@ public class SocialEditorWidget {
         if (!items.isEmpty()) {
             tableState.selectFirst();
         }
+        loaded = true;
     }
 
     public void save() {
         List<Social.Item> socialItems = items.stream().map(item -> new Social.Item(item.name(), item.url())).toList();
-        repository.saveSocial(new Social(socialItems));
+        repository.saveSocial(resumeId, new Social(socialItems));
     }
 
     public void openAddDialog() {
@@ -111,11 +119,8 @@ public class SocialEditorWidget {
     }
 
     public Element render() {
-        if (items.isEmpty()) {
-            var saved = repository.getSocial();
-            if (saved.items() != null && !saved.items().isEmpty()) {
-                load();
-            }
+        if (!loaded) {
+            load();
         }
 
         if (showDialog) {
