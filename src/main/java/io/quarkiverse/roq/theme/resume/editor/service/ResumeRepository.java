@@ -22,6 +22,64 @@ import io.quarkus.logging.Log;
 @ApplicationScoped
 public class ResumeRepository {
 
+    private static final String FIND_ALL_RESUMES_SQL = """
+            SELECT id, name
+            FROM resume
+            ORDER BY name
+            """;
+
+    private static final String INSERT_RESUME_SQL = """
+            INSERT INTO resume (name)
+            VALUES (?)
+            """;
+
+    private static final String UPDATE_RESUME_SQL = """
+            UPDATE resume
+            SET name = ?
+            WHERE id = ?
+            """;
+
+    private static final String DELETE_RESUME_SQL = """
+            DELETE FROM resume
+            WHERE id = ?
+            """;
+
+    private static final String FIND_PROFILE_BY_RESUME_ID_SQL = """
+            SELECT first_name, last_name, picture, job_title, bio, city, country, phone, email, site
+            FROM profile
+            WHERE resume_id = ?
+            LIMIT 1
+            """;
+
+    private static final String DELETE_PROFILE_BY_RESUME_ID_SQL = """
+            DELETE FROM profile
+            WHERE resume_id = ?
+            """;
+
+    private static final String INSERT_PROFILE_SQL = """
+            INSERT INTO profile (
+                resume_id, first_name, last_name, picture, job_title, bio,
+                city, country, phone, email, site
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """;
+
+    private static final String FIND_SOCIAL_ITEMS_BY_RESUME_ID_SQL = """
+            SELECT name, url
+            FROM social_item
+            WHERE resume_id = ?
+            ORDER BY sort_order
+            """;
+
+    private static final String DELETE_SOCIAL_ITEMS_BY_RESUME_ID_SQL = """
+            DELETE FROM social_item
+            WHERE resume_id = ?
+            """;
+
+    private static final String INSERT_SOCIAL_ITEM_SQL = """
+            INSERT INTO social_item (resume_id, name, url, sort_order)
+            VALUES (?, ?, ?, ?)
+            """;
+
     @Inject
     DataSource dataSource;
 
@@ -29,10 +87,62 @@ public class ResumeRepository {
 
     public List<Resume> listResumes() {
         List<Resume> resumes = new ArrayList<>();
-        String sql = "SELECT id, name FROM resume ORDER BY name";
         try (Connection conn = dataSource.getConnection();
-                PreparedStatement ps = conn.prepareStatement(sql);
+                PreparedStatement ps = conn.prepareStatement(FIND_ALL_RESUMES_SQL);
                 ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                resumes.add(new Resume(rs.getLong("id"), rs.getString("name")));
+            }
+        } catch (SQLException e) {
+            Log.error("Error listing resumes", e);
+        }
+        return resumes;
+    }
+
+    public Resume createResume(String name) {
+        try (Connection conn = dataSource.getConnection();
+                PreparedStatement ps = conn.prepareStatement(INSERT_RESUME_SQL, Statement.RETURN_GENERATED_KEYS)) {
+            ps.setString(1, name);
+            ps.executeUpdate();
+            try (ResultSet rs = ps.getGeneratedKeys()) {
+                if (rs.next()) {
+                    return new Resume(rs.getLong(1), name);
+                }
+            }
+        } catch (SQLException e) {
+            Log.error("Error creating resume", e);
+        }
+        return null;
+    }
+
+    public void updateResume(Long id, String name) {
+        try (Connection conn = dataSource.getConnection();
+                PreparedStatement ps = conn.prepareStatement(UPDATE_RESUME_SQL)) {
+            ps.setString(1, name);
+            ps.setLong(2, id);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            Log.error("Error updating resume", e);
+        }
+    }
+
+    public void deleteResume(Long id) {
+        try (Connection conn = dataSource.getConnection();
+                PreparedStatement ps = conn.prepareStatement(DELETE_RESUME_SQL)) {
+            ps.setLong(1, id);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            Log.error("Error deleting resume", e);
+        }
+    }
+
+    // --- Profile ---
+
+    public Profile getProfile(Long resumeId) {
+        try (Connection conn = dataSource.getConnection();
+                PreparedStatement ps = conn.prepareStatement(FIND_PROFILE_BY_RESUME_ID_SQL)) {
+            ps.setLong(1, resumeId);
+            try (ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
                 resumes.add(new Resume(rs.getLong("id"), rs.getString("name")));
             }
@@ -91,9 +201,11 @@ public class ResumeRepository {
             ps.setLong(1, resumeId);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
-                    return new Profile(rs.getString("first_name"), rs.getString("last_name"), rs.getString("picture"),
-                            rs.getString("job_title"), rs.getString("bio"), rs.getString("city"), rs.getString("country"),
-                            rs.getString("phone"), rs.getString("email"), rs.getString("site"));
+                    return new Profile(rs.getString("first_name"), rs.getString("last_name"),
+                            rs.getString("picture"), rs.getString("job_title"), rs.getString("bio"),
+                            rs.getString("city"), rs.getString("country"), rs.getString("phone"),
+                            rs.getString("email"), rs.getString("site"));
+                }
                 }
             }
         } catch (SQLException e) {
@@ -103,13 +215,10 @@ public class ResumeRepository {
     }
 
     public void saveProfile(Long resumeId, Profile profile) {
-        String deleteSql = "DELETE FROM profile WHERE resume_id = ?";
-        String insertSql = "INSERT INTO profile (resume_id, first_name, last_name, picture, job_title, bio, city, country, phone, email, site) VALUES (?,?,?,?,?,?,?,?,?,?,?)";
-
         try (Connection conn = dataSource.getConnection()) {
             conn.setAutoCommit(false);
-            try (PreparedStatement psDelete = conn.prepareStatement(deleteSql);
-                    PreparedStatement psInsert = conn.prepareStatement(insertSql)) {
+            try (PreparedStatement psDelete = conn.prepareStatement(DELETE_PROFILE_BY_RESUME_ID_SQL);
+                    PreparedStatement psInsert = conn.prepareStatement(INSERT_PROFILE_SQL)) {
                 psDelete.setLong(1, resumeId);
                 psDelete.execute();
                 psInsert.setLong(1, resumeId);
@@ -138,9 +247,8 @@ public class ResumeRepository {
 
     public Social getSocial(Long resumeId) {
         List<Social.Item> items = new ArrayList<>();
-        String sql = "SELECT name, url FROM social_item WHERE resume_id = ? ORDER BY sort_order";
         try (Connection conn = dataSource.getConnection();
-                PreparedStatement ps = conn.prepareStatement(sql)) {
+                PreparedStatement ps = conn.prepareStatement(FIND_SOCIAL_ITEMS_BY_RESUME_ID_SQL)) {
             ps.setLong(1, resumeId);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
@@ -154,13 +262,10 @@ public class ResumeRepository {
     }
 
     public void saveSocial(Long resumeId, Social social) {
-        String deleteSql = "DELETE FROM social_item WHERE resume_id = ?";
-        String insertSql = "INSERT INTO social_item (resume_id, name, url, sort_order) VALUES (?,?,?,?)";
-
         try (Connection conn = dataSource.getConnection()) {
             conn.setAutoCommit(false);
-            try (PreparedStatement psDelete = conn.prepareStatement(deleteSql);
-                    PreparedStatement psInsert = conn.prepareStatement(insertSql)) {
+            try (PreparedStatement psDelete = conn.prepareStatement(DELETE_SOCIAL_ITEMS_BY_RESUME_ID_SQL);
+                    PreparedStatement psInsert = conn.prepareStatement(INSERT_SOCIAL_ITEM_SQL)) {
                 psDelete.setLong(1, resumeId);
                 psDelete.execute();
                 if (social.items() != null) {

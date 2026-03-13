@@ -139,7 +139,8 @@ public class Main implements QuarkusApplication {
                                 return EventResult.HANDLED;
                             }
 
-                            if (key.isChar('x') && !socialEditor.isDialogOpen() && !resumeSelector.isDialogOpen()) {
+                            if (key.isChar('x') && !socialEditor.isDialogOpen()
+                                    && !resumeSelector.isDialogOpen()) {
                                 int tab = tabsState.selected();
                                 if (tab == 3)
                                     socialEditor.save();
@@ -149,11 +150,13 @@ public class Main implements QuarkusApplication {
                                 statusMessage = "Saved successfully!";
                                 return EventResult.HANDLED;
                             }
-                            if (key.isChar('a') && tabsState.selected() == 3 && !socialEditor.isDialogOpen()) {
+                            if (key.isChar('a') && tabsState.selected() == 3
+                                    && !socialEditor.isDialogOpen()) {
                                 socialEditor.openAddDialog();
                                 return EventResult.HANDLED;
                             }
-                            if (key.isChar('e') && tabsState.selected() == 3 && !socialEditor.isDialogOpen()) {
+                            if (key.isChar('e') && tabsState.selected() == 3
+                                    && !socialEditor.isDialogOpen()) {
                                 socialEditor.openEditDialog();
                                 return EventResult.HANDLED;
                             }

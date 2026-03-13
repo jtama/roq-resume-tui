@@ -29,23 +29,22 @@ import io.quarkiverse.roq.theme.resume.editor.service.ResumeRepository;
 @Singleton
 public class SocialEditorWidget {
 
+    public static final String NAME_FORM_STATE = "name";
+    public static final String URL_FORM_STATE = "url";
     @Inject
     ResumeRepository repository;
 
-    private record SocialItem(String name, String url) {
-    }
-
-    private List<SocialItem> items = new ArrayList<>();
-    private List<SocialItem> originalItems = new ArrayList<>();
+    private List<Social.Item> items = new ArrayList<>();
+    private List<Social.Item> originalItems = new ArrayList<>();
     private final TableState tableState = new TableState();
 
     // Dialog state
     private boolean showDialog = false;
     private boolean isEditing = false;
-    private SocialItem editingItem = null;
+    private Social.Item editingItem = null;
 
-    private final FormState dialogState = FormState.builder().textField("name", "name")
-            .textField("url", "https://<URL>").build();
+    private final FormState dialogState = FormState.builder().textField(NAME_FORM_STATE, "")
+            .textField(URL_FORM_STATE, "https://").build();
 
     private Long currentResumeId;
 
@@ -54,9 +53,7 @@ public class SocialEditorWidget {
         Social social = repository.getSocial(resumeId);
         items.clear();
         if (social.items() != null) {
-            for (Social.Item item : social.items()) {
-                items.add(new SocialItem(item.name(), item.url()));
-            }
+            items.addAll(social.items());
         }
         originalItems.clear();
         originalItems.addAll(items);
@@ -72,8 +69,8 @@ public class SocialEditorWidget {
     public void save() {
         if (currentResumeId == null)
             return;
-        List<Social.Item> socialItems = items.stream().map(item -> new Social.Item(item.name(), item.url())).toList();
-        repository.saveSocial(currentResumeId, new Social(socialItems));
+
+        repository.saveSocial(currentResumeId, new Social(new ArrayList<>(items)));
         originalItems.clear();
         originalItems.addAll(items);
     }
@@ -81,8 +78,8 @@ public class SocialEditorWidget {
     public void openAddDialog() {
         isEditing = false;
         editingItem = null;
-        dialogState.setTextValue("name", "");
-        dialogState.setTextValue("url", "");
+        dialogState.setTextValue(NAME_FORM_STATE, "");
+        dialogState.setTextValue(URL_FORM_STATE, "");
         dialogState.clearAllValidationResults();
         showDialog = true;
     }
@@ -92,8 +89,8 @@ public class SocialEditorWidget {
         if (selected != null && selected >= 0 && selected < items.size()) {
             isEditing = true;
             editingItem = items.get(selected);
-            dialogState.setTextValue("name", editingItem.name());
-            dialogState.setTextValue("url", editingItem.url());
+            dialogState.setTextValue(NAME_FORM_STATE, editingItem.name());
+            dialogState.setTextValue(URL_FORM_STATE, editingItem.url());
             dialogState.clearAllValidationResults();
             showDialog = true;
         }
@@ -106,13 +103,13 @@ public class SocialEditorWidget {
 
     public void submitDialog() {
         if (!dialogState.hasValidationErrors()) {
-            String name = dialogState.textValue("name");
-            String url = dialogState.textValue("url");
+            String name = dialogState.textValue(NAME_FORM_STATE);
+            String url = dialogState.textValue(URL_FORM_STATE);
 
             if (isEditing && editingItem != null) {
-                items.set(tableState.selected(), new SocialItem(name, url));
+                items.set(tableState.selected(), new Social.Item(name, url));
             } else {
-                items.add(new SocialItem(name, url));
+                items.add(new Social.Item(name, url));
                 tableState.select(items.size() - 1);
             }
             save();
@@ -175,21 +172,21 @@ public class SocialEditorWidget {
     private Element renderDialog() {
         String title = (isEditing ? "Edit Item" : "Add New Item") + " (Press Enter to save)";
 
-        // @formatter:off
+    // @formatter:off
         return dialog(title,
                 column(
-                        formField("Name", dialogState.textField("name"))
+                        formField("Name", dialogState.textField(NAME_FORM_STATE))
                                 .addClass("formfield")
-                                .formState(dialogState, "name")
+                                .formState(dialogState, NAME_FORM_STATE)
                                 .id("val-name").labelWidth(10)
                                 .placeholder("Acme.com")
                                 .validate(Validators.required())
                                 .showInlineErrors(true)
                                 .focusable()
                                 .onSubmit(this::submitDialog),
-                        formField("Url", dialogState.textField("url"))
+                        formField("Url", dialogState.textField(URL_FORM_STATE))
                                 .addClass("formfield")
-                                .formState(dialogState, "url")
+                                .formState(dialogState, URL_FORM_STATE)
                                 .id("val-url").labelWidth(10)
                                 .placeholder("https://acme.com/profile_id")
                                 .validate(Validators.required(),

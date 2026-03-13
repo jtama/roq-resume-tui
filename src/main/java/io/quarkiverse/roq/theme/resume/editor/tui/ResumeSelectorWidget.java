@@ -191,7 +191,7 @@ public class ResumeSelectorWidget {
     public void submitDialog() {
         if (!dialogForm.hasValidationErrors()) {
             String name = dialogForm.textValue("name");
-            if (name != null && !name.trim().isEmpty()) {
+            if (!name.trim().isEmpty()) {
                 if (isEditing && editingResumeId != null) {
                     repository.updateResume(editingResumeId, name);
                 } else {
