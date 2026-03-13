@@ -28,8 +28,13 @@ public class ProfileEditorWidget {
             .textField("jobTitle", "").textField("email", "").textField("city", "").textField("country", "")
             .textField("phone", "").textField("site", "").textField("bio", "").textField("picture", "").build();
 
-    public void load() {
-        Profile profile = repository.getProfile();
+    private Long currentResumeId;
+    private Profile originalProfile;
+
+    public void load(Long resumeId) {
+        this.currentResumeId = resumeId;
+        Profile profile = repository.getProfile(resumeId);
+        this.originalProfile = profile;
 
         form.setTextValue("firstName", profile.firstName() != null ? profile.firstName() : "");
         form.setTextValue("lastName", profile.lastName() != null ? profile.lastName() : "");
@@ -42,19 +47,35 @@ public class ProfileEditorWidget {
         form.setTextValue("bio", profile.bio() != null ? profile.bio() : "");
         form.setTextValue("picture", profile.picture() != null ? profile.picture() : "");
 
+        this.originalProfile = new Profile(form.textValue("firstName"), form.textValue("lastName"),
+                form.textValue("picture"), form.textValue("jobTitle"), form.textValue("bio"), form.textValue("city"),
+                form.textValue("country"), form.textValue("phone"), form.textValue("email"), form.textValue("site"));
+
         loaded = true;
     }
 
+    public boolean isDirty() {
+        if (!loaded || originalProfile == null)
+            return false;
+        Profile current = new Profile(form.textValue("firstName"), form.textValue("lastName"),
+                form.textValue("picture"), form.textValue("jobTitle"), form.textValue("bio"), form.textValue("city"),
+                form.textValue("country"), form.textValue("phone"), form.textValue("email"), form.textValue("site"));
+        return !current.equals(originalProfile);
+    }
+
     public void save() {
+        if (currentResumeId == null)
+            return;
         Profile updated = new Profile(form.textValue("firstName"), form.textValue("lastName"),
                 form.textValue("picture"), form.textValue("jobTitle"), form.textValue("bio"), form.textValue("city"),
                 form.textValue("country"), form.textValue("phone"), form.textValue("email"), form.textValue("site"));
-        repository.saveProfile(updated);
+        repository.saveProfile(currentResumeId, updated);
+        this.originalProfile = updated;
     }
 
-    public Element render() {
-        if (!loaded) {
-            load();
+    public Element render(Long resumeId) {
+        if (!loaded || !resumeId.equals(currentResumeId)) {
+            load(resumeId);
         }
 
         // @formatter:off
@@ -69,7 +90,7 @@ public class ProfileEditorWidget {
                                 .labelWidth(12).fill()
                                 .validate(Validators.required())
                                 .showInlineErrors(true)
-                                .focusable(),
+                                .focusable().onSubmit(this::save),
                         formField("Last Name", form.textField("lastName"))
                                 .addClass("formfield")
                                 .formState(form, "lastName")
@@ -77,7 +98,7 @@ public class ProfileEditorWidget {
                                 .labelWidth(12).fill()
                                 .validate(Validators.required())
                                 .showInlineErrors(true)
-                                .focusable()
+                                .focusable().onSubmit(this::save)
                 ).spacing(1),
 
                 // Professional Info
@@ -87,7 +108,7 @@ public class ProfileEditorWidget {
                                 .formState(form, "jobTitle")
                                 .id("jobTitle")
                                 .labelWidth(12).fill()
-                                .focusable(),
+                                .focusable().onSubmit(this::save),
                         formField("Email", form.textField("email"))
                                 .addClass("formfield")
                                 .formState(form, "email")
@@ -96,7 +117,7 @@ public class ProfileEditorWidget {
                                 // Simple email regex, can be improved or removed if too strict
                                 .validate(Validators.pattern("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$", "Invalid email"))
                                 .showInlineErrors(true)
-                                .focusable()
+                                .focusable().onSubmit(this::save)
                 ).spacing(1),
 
                 // Location
@@ -106,13 +127,13 @@ public class ProfileEditorWidget {
                                 .formState(form, "city")
                                 .id("city")
                                 .labelWidth(12).fill()
-                                .focusable(),
+                                .focusable().onSubmit(this::save),
                         formField("Country", form.textField("country"))
                                 .addClass("formfield")
                                 .formState(form, "country")
                                 .id("country")
                                 .labelWidth(12).fill()
-                                .focusable()
+                                .focusable().onSubmit(this::save)
                 ).spacing(1),
 
                 // Contact
@@ -122,13 +143,13 @@ public class ProfileEditorWidget {
                                 .formState(form, "phone")
                                 .id("phone")
                                 .labelWidth(12).fill()
-                                .focusable(),
+                                .focusable().onSubmit(this::save),
                         formField("Site", form.textField("site"))
                                 .addClass("formfield")
                                 .formState(form, "site")
                                 .id("site")
                                 .labelWidth(12).fill()
-                                .focusable()
+                                .focusable().onSubmit(this::save)
                 ).spacing(1),
 
                 // Other
@@ -137,14 +158,14 @@ public class ProfileEditorWidget {
                         .formState(form, "picture")
                         .id("picture")
                         .labelWidth(15).fill()
-                        .focusable(),
+                        .focusable().onSubmit(this::save),
 
                 formField("Bio", form.textField("bio"))
                         .addClass("formfield")
                         .formState(form, "bio")
                         .id("bio")
                         .labelWidth(15).fill() // TODO: Replace with textArea when supported
-                        .focusable()
+                        .focusable().onSubmit(this::save)
                 ).spacing(1)
         )
         .fill();

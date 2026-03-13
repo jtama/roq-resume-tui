@@ -36,6 +36,7 @@ public class SocialEditorWidget {
     }
 
     private List<SocialItem> items = new ArrayList<>();
+    private List<SocialItem> originalItems = new ArrayList<>();
     private final TableState tableState = new TableState();
 
     // Dialog state
@@ -46,22 +47,35 @@ public class SocialEditorWidget {
     private final FormState dialogState = FormState.builder().textField("name", "name")
             .textField("url", "https://<URL>").build();
 
-    public void load() {
-        Social social = repository.getSocial();
+    private Long currentResumeId;
+
+    public void load(Long resumeId) {
+        this.currentResumeId = resumeId;
+        Social social = repository.getSocial(resumeId);
         items.clear();
         if (social.items() != null) {
             for (Social.Item item : social.items()) {
                 items.add(new SocialItem(item.name(), item.url()));
             }
         }
+        originalItems.clear();
+        originalItems.addAll(items);
         if (!items.isEmpty()) {
             tableState.selectFirst();
         }
     }
 
+    public boolean isDirty() {
+        return !items.equals(originalItems);
+    }
+
     public void save() {
+        if (currentResumeId == null)
+            return;
         List<Social.Item> socialItems = items.stream().map(item -> new Social.Item(item.name(), item.url())).toList();
-        repository.saveSocial(new Social(socialItems));
+        repository.saveSocial(currentResumeId, new Social(socialItems));
+        originalItems.clear();
+        originalItems.addAll(items);
     }
 
     public void openAddDialog() {
@@ -110,12 +124,9 @@ public class SocialEditorWidget {
         return showDialog;
     }
 
-    public Element render() {
-        if (items.isEmpty()) {
-            var saved = repository.getSocial();
-            if (saved.items() != null && !saved.items().isEmpty()) {
-                load();
-            }
+    public Element render(Long resumeId) {
+        if (items.isEmpty() || !resumeId.equals(currentResumeId)) {
+            load(resumeId);
         }
 
         if (showDialog) {
@@ -162,7 +173,7 @@ public class SocialEditorWidget {
     }
 
     private Element renderDialog() {
-        String title = isEditing ? "Edit Item" : "Add New Item";
+        String title = (isEditing ? "Edit Item" : "Add New Item") + " (Press Enter to save)";
 
         // @formatter:off
         return dialog(title,
@@ -195,10 +206,6 @@ public class SocialEditorWidget {
                 .onKeyEvent(key -> {
                     if (key.isConfirm()) {
                         submitDialog();
-                        return EventResult.HANDLED;
-                    }
-                    if (key.isCancel()) {
-                        closeDialog();
                         return EventResult.HANDLED;
                     }
                     return EventResult.UNHANDLED;

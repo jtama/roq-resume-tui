@@ -13,13 +13,17 @@ public class ProfileEditor {
     ResumeRepository repository;
 
     private Profile currentProfile;
+    private Long currentResumeId;
 
-    public void load() {
-        this.currentProfile = repository.getProfile();
+    public void load(Long resumeId) {
+        this.currentResumeId = resumeId;
+        this.currentProfile = repository.getProfile(resumeId);
     }
 
     public void save() {
-        repository.saveProfile(currentProfile);
+        if (currentResumeId != null) {
+            repository.saveProfile(currentResumeId, currentProfile);
+        }
     }
 
     public Profile getCurrentProfile() {

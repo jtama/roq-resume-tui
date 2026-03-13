@@ -23,6 +23,7 @@ import io.quarkiverse.roq.theme.resume.editor.service.ResumeRepository;
 import io.quarkiverse.roq.theme.resume.editor.service.YamlExportService;
 import io.quarkiverse.roq.theme.resume.editor.tui.BioEditorWidget;
 import io.quarkiverse.roq.theme.resume.editor.tui.ProfileEditorWidget;
+import io.quarkiverse.roq.theme.resume.editor.tui.ResumeSelectorWidget;
 import io.quarkiverse.roq.theme.resume.editor.tui.SocialEditorWidget;
 import io.quarkus.runtime.QuarkusApplication;
 import io.quarkus.runtime.annotations.QuarkusMain;
@@ -48,8 +49,12 @@ public class Main implements QuarkusApplication {
     @Inject
     BioEditorWidget bioEditor;
 
-    private TabsState tabsState = new TabsState();
-    private TabsElement tabs = tabs("[B]io", "[P]rofile", "[S]ocial").selected(0).focusable().id("nav").divider(" | ")
+    @Inject
+    ResumeSelectorWidget resumeSelector;
+
+    private TabsState tabsState = new TabsState(0);
+    private TabsElement tabs = tabs("[R]esumes", "[B]io", "[P]rofile", "[S]ocial").selected(0).focusable().id("nav")
+            .divider(" | ")
             .title(" Navigation ").fill().state(tabsState)
             .onKeyEvent(key -> {
                 if (key.code() == KeyCode.LEFT) {
@@ -57,7 +62,7 @@ public class Main implements QuarkusApplication {
                     return EventResult.HANDLED;
                 }
                 if (key.code() == KeyCode.RIGHT) {
-                    tabsState.select(Math.min(2, tabsState.selected() + 1));
+                    tabsState.select(Math.min(3, tabsState.selected() + 1));
                     return EventResult.HANDLED;
                 }
                 return EventResult.UNHANDLED;
@@ -93,54 +98,69 @@ public class Main implements QuarkusApplication {
         styleEngine.loadStylesheet("everforest", "everforest.tcss");
         styleEngine.setActiveStylesheet("catpuccin");
         try (var runner = ToolkitRunner.builder().styleEngine(styleEngine).build()) {
-            runner.run(
-                    () -> dock().top(tabs).center(renderContent()).bottom(panel("Status", text(statusMessage).green()))
-                            .bottomHeight(Constraint.length(5)).onKeyEvent(key -> {
-                                if (key.isChar('t') || key.isChar('T')) {
-                                    String current = styleEngine.getActiveStylesheet().orElse("catpuccin");
-                                    if ("catpuccin".equals(current)) {
-                                        styleEngine.setActiveStylesheet("everforest");
-                                    } else {
-                                        styleEngine.setActiveStylesheet("catpuccin");
-                                    }
-                                    return EventResult.HANDLED;
-                                }
-                                if (key.isChar('B') || key.isChar('b')) {
-                                    statusMessage = "Press 'a' to add, 'x' to save, 't' to toggle theme, 'q' to exit";
-                                    tabsState.select(0);
-                                    return EventResult.HANDLED;
-                                }
-                                if (key.isChar('P') || key.isChar('p')) {
-                                    statusMessage = "Press 'a' to add, 'x' to save, 't' to toggle theme, 'q' to exit";
-                                    tabsState.select(1);
-                                    return EventResult.HANDLED;
-                                }
-                                if (key.isChar('S') || key.isChar('s')) {
-                                    statusMessage = "Press 'a' to add, 'x' to save, 't' to toggle theme, 'q' to exit";
-                                    tabsState.select(2);
-                                    return EventResult.HANDLED;
-                                }
-                                if (key.isChar('x') && !socialEditor.isDialogOpen()) {
-                                    int tab = tabsState.selected();
-                                    if (tab == 2)
-                                        socialEditor.save();
-                                    else if (tab == 1)
-                                        profileEditor.save();
+            runner.run(() -> {
+                boolean isDirty = profileEditor.isDirty() || socialEditor.isDirty();
+                String displayStatus = statusMessage;
+                if (isDirty && displayStatus.startsWith("Press")) {
+                    displayStatus = "*UNSAVED CHANGES* " + displayStatus;
+                }
 
-                                    statusMessage = "Saved successfully!";
-                                    return EventResult.HANDLED;
-                                }
-                                if (key.isChar('a') && tabsState.selected() == 2 && !socialEditor.isDialogOpen()) {
-                                    socialEditor.openAddDialog();
-                                    return EventResult.HANDLED;
-                                }
-                                if (key.isChar('e') && tabsState.selected() == 2 && !socialEditor.isDialogOpen()) {
-                                    socialEditor.openEditDialog();
-                                    return EventResult.HANDLED;
-                                }
-                                return EventResult.UNHANDLED;
+                return dock().top(tabs).center(renderContent()).bottom(panel("Status", text(displayStatus).green()))
+                        .bottomHeight(Constraint.length(5)).onKeyEvent(key -> {
+                            boolean isSaveKey = key.isChar('x') && !socialEditor.isDialogOpen()
+                                    && !resumeSelector.isDialogOpen();
+                            if (!isSaveKey) {
+                                statusMessage = "Press 'a' to add, 'x' to save, 't' to toggle theme, 'q' to exit";
+                            }
 
-                            }));
+                            if (key.isChar('t') || key.isChar('T')) {
+                                String current = styleEngine.getActiveStylesheet().orElse("catpuccin");
+                                if ("catpuccin".equals(current)) {
+                                    styleEngine.setActiveStylesheet("everforest");
+                                } else {
+                                    styleEngine.setActiveStylesheet("catpuccin");
+                                }
+                                return EventResult.HANDLED;
+                            }
+                            if (key.isChar('R') || key.isChar('r')) {
+                                tabsState.select(0);
+                                return EventResult.HANDLED;
+                            }
+                            if (key.isChar('B') || key.isChar('b')) {
+                                tabsState.select(1);
+                                return EventResult.HANDLED;
+                            }
+                            if (key.isChar('P') || key.isChar('p')) {
+                                tabsState.select(2);
+                                return EventResult.HANDLED;
+                            }
+                            if (key.isChar('S') || key.isChar('s')) {
+                                tabsState.select(3);
+                                return EventResult.HANDLED;
+                            }
+
+                            if (key.isChar('x') && !socialEditor.isDialogOpen() && !resumeSelector.isDialogOpen()) {
+                                int tab = tabsState.selected();
+                                if (tab == 3)
+                                    socialEditor.save();
+                                else if (tab == 2)
+                                    profileEditor.save();
+
+                                statusMessage = "Saved successfully!";
+                                return EventResult.HANDLED;
+                            }
+                            if (key.isChar('a') && tabsState.selected() == 3 && !socialEditor.isDialogOpen()) {
+                                socialEditor.openAddDialog();
+                                return EventResult.HANDLED;
+                            }
+                            if (key.isChar('e') && tabsState.selected() == 3 && !socialEditor.isDialogOpen()) {
+                                socialEditor.openEditDialog();
+                                return EventResult.HANDLED;
+                            }
+                            return EventResult.UNHANDLED;
+
+                        });
+            });
         }
 
         // --- Shutdown & Save ---
@@ -157,11 +177,14 @@ public class Main implements QuarkusApplication {
     private Element renderContent() {
         Integer selected = tabsState.selected();
         int tabIndex = selected != null ? selected : 0;
+        Long resumeId = resumeSelector.getSelectedResumeId();
+
         return switch (tabIndex) {
-            case 0 -> bioEditor.render();
-            case 1 -> profileEditor.render();
-            case 2 -> socialEditor.render();
-            default -> bioEditor.render();
+            case 0 -> resumeSelector.render();
+            case 1 -> bioEditor.render(); // TODO: Update bioEditor to accept resumeId
+            case 2 -> profileEditor.render(resumeId);
+            case 3 -> socialEditor.render(resumeId);
+            default -> resumeSelector.render();
         };
     }
 
