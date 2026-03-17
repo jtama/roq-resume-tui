@@ -44,3 +44,9 @@ resume.db.enc
 /.quarkus/cli/plugins/
 # TLS Certificates
 .certs/
+
+# Log files
+*.log
+
+# Database files
+*.db

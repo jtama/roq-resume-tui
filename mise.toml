@@ -1,5 +1,6 @@
 [tools]
 java = "mandrel-25.0.2.0-Final+java25"
+maven = "3.9.14"
 
 [tasks."build"]
 # Enable leyden AOT integration

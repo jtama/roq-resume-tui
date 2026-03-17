@@ -12,11 +12,11 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
         <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
-        <quarkus.platform.version>3.32.2</quarkus.platform.version>
+        <quarkus.platform.version>3.32.3</quarkus.platform.version>
         <tamboui.version>0.1.0</tamboui.version>
         <skipITs>true</skipITs>
         <version.formatter.plugin>3.3.0</version.formatter.plugin>
-        <surefire-plugin.version>3.5.4</surefire-plugin.version>
+        <surefire-plugin.version>3.5.5</surefire-plugin.version>
     </properties>
 
     <dependencyManagement>
@@ -151,12 +151,12 @@
                     <plugin>
                         <groupId>com.diffplug.spotless</groupId>
                         <artifactId>spotless-maven-plugin</artifactId>
-                        <version>2.43.0</version>
+                        <version>3.3.0</version>
                         <configuration>
                             <java>
                                 <toggleOffOn />
                                 <importOrder>
-                                    <file>ide-config/eclipse-import-order.txt</file>
+                                    <file>ide-config/eclipse.importorder</file>
                                 </importOrder>
                                 <removeUnusedImports />
                                 <eclipse>
