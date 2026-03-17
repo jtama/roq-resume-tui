@@ -143,69 +143,11 @@ public class ResumeRepository {
                 PreparedStatement ps = conn.prepareStatement(FIND_PROFILE_BY_RESUME_ID_SQL)) {
             ps.setLong(1, resumeId);
             try (ResultSet rs = ps.executeQuery()) {
-            while (rs.next()) {
-                resumes.add(new Resume(rs.getLong("id"), rs.getString("name")));
-            }
-        } catch (SQLException e) {
-            Log.error("Error listing resumes", e);
-        }
-        return resumes;
-    }
-
-    public Resume createResume(String name) {
-        String sql = "INSERT INTO resume (name) VALUES (?)";
-        try (Connection conn = dataSource.getConnection();
-                PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-            ps.setString(1, name);
-            ps.executeUpdate();
-            try (ResultSet rs = ps.getGeneratedKeys()) {
-                if (rs.next()) {
-                    return new Resume(rs.getLong(1), name);
-                }
-            }
-        } catch (SQLException e) {
-            Log.error("Error creating resume", e);
-        }
-        return null;
-    }
-
-    public void updateResume(Long id, String name) {
-        String sql = "UPDATE resume SET name = ? WHERE id = ?";
-        try (Connection conn = dataSource.getConnection();
-                PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, name);
-            ps.setLong(2, id);
-            ps.executeUpdate();
-        } catch (SQLException e) {
-            Log.error("Error updating resume", e);
-        }
-    }
-
-    public void deleteResume(Long id) {
-        String sql = "DELETE FROM resume WHERE id = ?";
-        try (Connection conn = dataSource.getConnection();
-                PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setLong(1, id);
-            ps.executeUpdate();
-        } catch (SQLException e) {
-            Log.error("Error deleting resume", e);
-        }
-    }
-
-    // --- Profile ---
-
-    public Profile getProfile(Long resumeId) {
-        String sql = "SELECT first_name, last_name, picture, job_title, bio, city, country, phone, email, site FROM profile WHERE resume_id = ? LIMIT 1";
-        try (Connection conn = dataSource.getConnection();
-                PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setLong(1, resumeId);
-            try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     return new Profile(rs.getString("first_name"), rs.getString("last_name"),
                             rs.getString("picture"), rs.getString("job_title"), rs.getString("bio"),
                             rs.getString("city"), rs.getString("country"), rs.getString("phone"),
                             rs.getString("email"), rs.getString("site"));
-                }
                 }
             }
         } catch (SQLException e) {
