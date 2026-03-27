@@ -69,7 +69,7 @@
         </dependency>
         <dependency>
             <groupId>dev.tamboui</groupId>
-            <artifactId>tamboui-jline3-backend</artifactId>
+            <artifactId>tamboui-aesh-backend</artifactId>
             <version>${tamboui.version}</version>
         </dependency>
         <dependency>
