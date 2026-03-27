@@ -1,0 +1,1 @@
+ALTER TABLE bio_item ADD COLUMN tags TEXT;

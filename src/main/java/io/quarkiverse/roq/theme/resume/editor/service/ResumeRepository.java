@@ -80,6 +80,35 @@ public class ResumeRepository {
             VALUES (?, ?, ?, ?)
             """;
 
+    private static final String FIND_BIO_SECTIONS_SQL = """
+            SELECT id, title
+            FROM bio_section
+            WHERE resume_id = ?
+            ORDER BY sort_order
+            """;
+
+    private static final String FIND_BIO_ITEMS_BY_SECTION_SQL = """
+            SELECT id, header, title, link, content, logo_label, logo_image_url, logo_link,
+                   collapsible, collapsed, ruler, parent_id, tags
+            FROM bio_item
+            WHERE section_id = ?
+            ORDER BY sort_order
+            """;
+
+    private static final String DELETE_BIO_SECTIONS_SQL = """
+            DELETE FROM bio_section WHERE resume_id = ?
+            """;
+
+    private static final String INSERT_BIO_SECTION_SQL = """
+            INSERT INTO bio_section (resume_id, title, sort_order) VALUES (?, ?, ?)
+            """;
+
+    private static final String INSERT_BIO_ITEM_SQL = """
+            INSERT INTO bio_item (section_id, header, title, link, content, logo_label, logo_image_url, logo_link,
+                                  collapsible, collapsed, ruler, parent_id, tags, sort_order)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """;
+
     @Inject
     DataSource dataSource;
 
@@ -235,11 +264,181 @@ public class ResumeRepository {
     // --- Bio ---
 
     public Bio getBio(Long resumeId) {
-        // Implementation pending for nested structure, but needs to filter by resume_id
-        return new Bio(new ArrayList<>());
+        List<Bio.Section> sections = new ArrayList<>();
+        try (Connection conn = dataSource.getConnection();
+                PreparedStatement psSections = conn.prepareStatement(FIND_BIO_SECTIONS_SQL);
+                PreparedStatement psItems = conn.prepareStatement(FIND_BIO_ITEMS_BY_SECTION_SQL)) {
+
+            psSections.setLong(1, resumeId);
+            try (ResultSet rsSections = psSections.executeQuery()) {
+                while (rsSections.next()) {
+                    long sectionId = rsSections.getLong("id");
+                    String title = rsSections.getString("title");
+
+                    psItems.setLong(1, sectionId);
+                    List<Bio.Item> allItems = new ArrayList<>();
+                    java.util.Map<Long, Bio.Item> itemMap = new java.util.HashMap<>();
+                    java.util.Map<Long, Long> parentMap = new java.util.HashMap<>();
+
+                    try (ResultSet rsItems = psItems.executeQuery()) {
+                        while (rsItems.next()) {
+                            long id = rsItems.getLong("id");
+                            long parentId = rsItems.getLong("parent_id");
+                            boolean hasParent = !rsItems.wasNull();
+                            String tagsStr = rsItems.getString("tags");
+                            List<String> tags = tagsStr != null && !tagsStr.isEmpty()
+                                    ? new ArrayList<>(List.of(tagsStr.split(",")))
+                                    : new ArrayList<>();
+
+                            Bio.Logo logo = null;
+                            if (rsItems.getString("logo_label") != null) {
+                                logo = new Bio.Logo(rsItems.getString("logo_label"), rsItems.getString("logo_image_url"),
+                                        rsItems.getString("logo_link"));
+                            }
+
+                            Bio.Item item = new Bio.Item(
+                                    id,
+                                    rsItems.getString("header"),
+                                    rsItems.getString("title"),
+                                    rsItems.getString("link"),
+                                    rsItems.getString("content"),
+                                    logo,
+                                    rsItems.getBoolean("collapsible"),
+                                    rsItems.getBoolean("collapsed"),
+                                    rsItems.getBoolean("ruler"),
+                                    tags,
+                                    new ArrayList<>());
+                            itemMap.put(id, item);
+                            parentMap.put(id, hasParent ? parentId : null);
+                            allItems.add(item);
+                        }
+                    }
+
+                    List<Bio.Item> rootItems = new ArrayList<>();
+                    for (Bio.Item item : allItems) {
+                        Long parentId = parentMap.get(item.id());
+                        if (parentId == null || parentId == 0) {
+                            rootItems.add(item);
+                        } else {
+                            Bio.Item parent = itemMap.get(parentId);
+                            if (parent != null) {
+                                parent.subItems().add(item);
+                            } else {
+                                rootItems.add(item);
+                            }
+                        }
+                    }
+
+                    sections.add(new Bio.Section(sectionId, title, rootItems));
+                }
+            }
+        } catch (SQLException e) {
+            Log.error("Error getting bio", e);
+        }
+        return new Bio(sections);
     }
 
     public void saveBio(Long resumeId, Bio bio) {
-        // Implementation pending for nested structure
+        try (Connection conn = dataSource.getConnection()) {
+            conn.setAutoCommit(false);
+            try (PreparedStatement psDelete = conn.prepareStatement(DELETE_BIO_SECTIONS_SQL);
+                    PreparedStatement psInsertSection = conn.prepareStatement(INSERT_BIO_SECTION_SQL,
+                            Statement.RETURN_GENERATED_KEYS);
+                    PreparedStatement psInsertItem = conn.prepareStatement(INSERT_BIO_ITEM_SQL,
+                            Statement.RETURN_GENERATED_KEYS)) {
+
+                psDelete.setLong(1, resumeId);
+                psDelete.executeUpdate();
+
+                if (bio.list() != null) {
+                    int sectionOrder = 0;
+                    for (Bio.Section section : bio.list()) {
+                        psInsertSection.setLong(1, resumeId);
+                        psInsertSection.setString(2, section.title());
+                        psInsertSection.setInt(3, sectionOrder++);
+                        psInsertSection.executeUpdate();
+
+                        long sectionId;
+                        try (ResultSet rs = psInsertSection.getGeneratedKeys()) {
+                            if (rs.next())
+                                sectionId = rs.getLong(1);
+                            else
+                                throw new SQLException("Failed to get section id");
+                        }
+
+                        if (section.items() != null) {
+                            saveBioItems(psInsertItem, sectionId, null, section.items());
+                        }
+                    }
+                }
+                conn.commit();
+            } catch (SQLException e) {
+                conn.rollback();
+                throw e;
+            }
+        } catch (SQLException e) {
+            Log.error("Error saving bio", e);
+            throw new RuntimeException(e);
+        }
+    }
+
+    private void saveBioItems(PreparedStatement psInsertItem, long sectionId, Long parentId, List<Bio.Item> items)
+            throws SQLException {
+        int order = 0;
+        for (Bio.Item item : items) {
+            psInsertItem.setLong(1, sectionId);
+            psInsertItem.setString(2, item.header());
+            psInsertItem.setString(3, item.title());
+            psInsertItem.setString(4, item.link());
+            psInsertItem.setString(5, item.content());
+
+            if (item.logo() != null) {
+                psInsertItem.setString(6, item.logo().label());
+                psInsertItem.setString(7, item.logo().imageUrl());
+                psInsertItem.setString(8, item.logo().link());
+            } else {
+                psInsertItem.setNull(6, java.sql.Types.VARCHAR);
+                psInsertItem.setNull(7, java.sql.Types.VARCHAR);
+                psInsertItem.setNull(8, java.sql.Types.VARCHAR);
+            }
+
+            if (item.collapsible() != null)
+                psInsertItem.setInt(9, item.collapsible() ? 1 : 0);
+            else
+                psInsertItem.setNull(9, java.sql.Types.INTEGER);
+
+            if (item.collapsed() != null)
+                psInsertItem.setInt(10, item.collapsed() ? 1 : 0);
+            else
+                psInsertItem.setNull(10, java.sql.Types.INTEGER);
+
+            if (item.ruler() != null)
+                psInsertItem.setInt(11, item.ruler() ? 1 : 0);
+            else
+                psInsertItem.setNull(11, java.sql.Types.INTEGER);
+
+            if (parentId != null)
+                psInsertItem.setLong(12, parentId);
+            else
+                psInsertItem.setNull(12, java.sql.Types.INTEGER);
+
+            String tagsStr = item.tags() != null ? String.join(",", item.tags()) : null;
+            psInsertItem.setString(13, tagsStr);
+            psInsertItem.setInt(14, order++);
+
+            psInsertItem.executeUpdate();
+
+            long itemId;
+            try (ResultSet rs = psInsertItem.getGeneratedKeys()) {
+                if (rs.next())
+                    itemId = rs.getLong(1);
+                else
+                    throw new SQLException("Failed to get item id");
+            }
+
+            if (item.subItems() != null && !item.subItems().isEmpty()) {
+                saveBioItems(psInsertItem, sectionId, itemId, item.subItems());
+            }
+        }
     }
 }
