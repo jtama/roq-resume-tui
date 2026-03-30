@@ -55,6 +55,9 @@ public class BioEditorWidget {
             .textField("link", "")
             .textField("content", "")
             .textField("tags", "")
+            .textField("logoLabel", "")
+            .textField("logoImageUrl", "")
+            .textField("logoLink", "")
             .build();
     @Inject
     Logger logger;
@@ -179,14 +182,16 @@ public class BioEditorWidget {
             }
             case SelectedItem item -> {
                 List<String> tags = parseTags(form.textValue("tags"));
+                Bio.Logo logo = createLogoFromForm();
+
                 var original = new Bio.Item(item.id(), item.header(), item.title(), item.link(), item.content(),
                         item.logo(), item.collapsible(), item.collapsed(), item.ruler(), item.tags(), item.subItems());
                 var updated = new Bio.Item(item.id(), form.textValue("header"), form.textValue("title"),
-                        form.textValue("link"), form.textValue("content"), item.logo(), item.collapsible(),
+                        form.textValue("link"), form.textValue("content"), logo, item.collapsible(),
                         item.collapsed(), item.ruler(), tags, item.subItems());
                 replaceInTree(currentBio.list(), original, updated);
                 selection = new SelectedItem(item.id(), form.textValue("header"), form.textValue("title"),
-                        form.textValue("link"), form.textValue("content"), item.logo(), item.collapsible(),
+                        form.textValue("link"), form.textValue("content"), logo, item.collapsible(),
                         item.collapsed(), item.ruler(), tags, item.subItems());
             }
         }
@@ -206,12 +211,33 @@ public class BioEditorWidget {
         return new ArrayList<>(List.of(tagsStr.split(",")));
     }
 
+    /// Create a Logo object from the form fields, or null if all fields are empty.
+    private Bio.Logo createLogoFromForm() {
+        String label = form.textValue("logoLabel");
+        String imageUrl = form.textValue("logoImageUrl");
+        String link = form.textValue("logoLink");
+
+        // Return null if no logo data is provided
+        if ((label == null || label.isBlank()) && (imageUrl == null || imageUrl.isBlank())) {
+            return null;
+        }
+
+        // Create logo with non-blank values
+        return new Bio.Logo(
+                label != null && !label.isBlank() ? label : null,
+                imageUrl != null && !imageUrl.isBlank() ? imageUrl : null,
+                link != null && !link.isBlank() ? link : null);
+    }
+
     private void clearForm() {
         form.setTextValue("title", "");
         form.setTextValue("header", "");
         form.setTextValue("link", "");
         form.setTextValue("content", "");
         form.setTextValue("tags", "");
+        form.setTextValue("logoLabel", "");
+        form.setTextValue("logoImageUrl", "");
+        form.setTextValue("logoLink", "");
     }
 
     private void populateForm() {
@@ -226,6 +252,17 @@ public class BioEditorWidget {
                 form.setTextValue("link", item.link() != null ? item.link() : "");
                 form.setTextValue("content", item.content() != null ? item.content() : "");
                 form.setTextValue("tags", item.tags() != null ? String.join(",", item.tags()) : "");
+
+                // Logo fields
+                if (item.logo() != null) {
+                    form.setTextValue("logoLabel", item.logo().label() != null ? item.logo().label() : "");
+                    form.setTextValue("logoImageUrl", item.logo().imageUrl() != null ? item.logo().imageUrl() : "");
+                    form.setTextValue("logoLink", item.logo().link() != null ? item.logo().link() : "");
+                } else {
+                    form.setTextValue("logoLabel", "");
+                    form.setTextValue("logoImageUrl", "");
+                    form.setTextValue("logoLink", "");
+                }
             }
         }
     }
@@ -471,6 +508,19 @@ public class BioEditorWidget {
                     formField("Tags (CSV)", form.textField("tags"))
                             .addClass("formfield").formState(form, "tags")
                             .labelWidth(12).fill().id("bio-item-tags")
+                            .focusable().onSubmit(this::doSave),
+                    text("--- Logo ---"),
+                    formField("Label", form.textField("logoLabel"))
+                            .addClass("formfield").formState(form, "logoLabel")
+                            .labelWidth(10).fill().id("bio-item-logo-label")
+                            .focusable().onSubmit(this::doSave),
+                    formField("Image URL", form.textField("logoImageUrl"))
+                            .addClass("formfield").formState(form, "logoImageUrl")
+                            .labelWidth(10).fill().id("bio-item-logo-image-url")
+                            .focusable().onSubmit(this::doSave),
+                    formField("Logo Link", form.textField("logoLink"))
+                            .addClass("formfield").formState(form, "logoLink")
+                            .labelWidth(10).fill().id("bio-item-logo-link")
                             .focusable().onSubmit(this::doSave))
                     .spacing(1);
         };
