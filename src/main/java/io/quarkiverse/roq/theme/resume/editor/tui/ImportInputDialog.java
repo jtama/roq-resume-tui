@@ -1,6 +1,7 @@
 package io.quarkiverse.roq.theme.resume.editor.tui;
 
-import jakarta.inject.Singleton;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 
 import dev.tamboui.toolkit.element.Element;
 import dev.tamboui.toolkit.event.EventResult;
@@ -13,17 +14,20 @@ import static dev.tamboui.toolkit.Toolkit.dialog;
 import static dev.tamboui.toolkit.Toolkit.formField;
 import static dev.tamboui.toolkit.Toolkit.text;
 
+import io.quarkiverse.roq.theme.resume.editor.service.YamlImportService;
+
 /// Dialog widget for importing Bio - allows user to enter file path or URL.
 /// Shows input field with validation and handles Enter (confirm) / Escape (cancel).
-@Singleton
+@ApplicationScoped
 public class ImportInputDialog {
+
+    @Inject
+    YamlImportService importService;
 
     private static final String SOURCE_FIELD = "source";
     private boolean isOpen = false;
-    private Runnable onCancel = () -> {
-    };
-    private java.util.function.Consumer<String> onSubmit = (s) -> {
-    };
+    private Runnable onCancel;
+    private java.util.function.Consumer<String> onSubmit;
 
     private final FormState formState = FormState.builder()
             .textField(SOURCE_FIELD, "")
@@ -69,6 +73,7 @@ public class ImportInputDialog {
                                 .placeholder("~/bio.yaml or https://example.com/bio.yaml")
                                 .validate(Validators.required())
                                 .showInlineErrors(true)
+                                .onSubmit(this::handleSubmit)
                                 .focusable()
                 )
                 .fill()
@@ -76,10 +81,6 @@ public class ImportInputDialog {
                 .length(600)
                 .width(900)
                 .onKeyEvent(key -> {
-                    if (key.isConfirm()) {
-                        handleSubmit();
-                        return EventResult.HANDLED;
-                    }
                     if (key.code() == KeyCode.ESCAPE) {
                         handleCancel();
                         return EventResult.HANDLED;

@@ -1,12 +1,13 @@
 package io.quarkiverse.roq.theme.resume.editor.tui;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
+import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import jakarta.inject.Singleton;
+
+import org.jboss.logging.Logger;
 
 import dev.tamboui.layout.Constraint;
 import dev.tamboui.toolkit.element.Element;
@@ -23,11 +24,13 @@ import static dev.tamboui.toolkit.Toolkit.row;
 import static dev.tamboui.toolkit.Toolkit.text;
 import static dev.tamboui.toolkit.Toolkit.tree;
 
+import io.quarkiverse.roq.theme.resume.editor.context.AppContext;
+import io.quarkiverse.roq.theme.resume.editor.exception.YamlImportException;
 import io.quarkiverse.roq.theme.resume.editor.model.Bio;
 import io.quarkiverse.roq.theme.resume.editor.service.ResumeRepository;
 import io.quarkiverse.roq.theme.resume.editor.service.YamlImportService;
 
-@Singleton
+@ApplicationScoped
 public class BioEditorWidget {
 
     @Inject
@@ -42,6 +45,9 @@ public class BioEditorWidget {
     @Inject
     ImportPreviewDialog importPreviewDialog;
 
+    @Inject
+    AppContext appContext;
+
     private final TreeElement<Object> treeEl = tree().id("bioTree").focusable();
     private final FormState form = FormState.builder()
             .textField("title", "")
@@ -50,6 +56,8 @@ public class BioEditorWidget {
             .textField("content", "")
             .textField("tags", "")
             .build();
+    @Inject
+    Logger logger;
 
     private Long currentResumeId;
     private Bio currentBio;
@@ -60,12 +68,14 @@ public class BioEditorWidget {
     private boolean hasModifications = false;
     private Selection selection = null;
 
-    /// Import dialog state
-    private boolean showImportDialog = false;
     private String importError = null;
 
     public boolean isDirty() {
         return hasModifications;
+    }
+
+    public boolean isError() {
+        return importError != null;
     }
 
     public void save() {
@@ -85,7 +95,6 @@ public class BioEditorWidget {
         importInputDialog.open(
                 this::importBio,
                 this::closeImportDialog);
-        showImportDialog = true;
         importError = null;
     }
 
@@ -96,7 +105,6 @@ public class BioEditorWidget {
 
     /// Close the import dialog.
     public void closeImportDialog() {
-        showImportDialog = false;
         importError = null;
         importInputDialog.close();
         importPreviewDialog.close();
@@ -114,7 +122,7 @@ public class BioEditorWidget {
             var importedBio = yamlImportService.importBio(source);
 
             if (importedBio.isEmpty()) {
-                importError = "Failed to parse YAML";
+                appContext.setStatusMessage("Failed to parse YAML");
                 return;
             }
 
@@ -123,8 +131,10 @@ public class BioEditorWidget {
                     importedBio.get(),
                     () -> confirmImport(importedBio.get()),
                     this::closeImportDialog);
-        } catch (IOException e) {
+        } catch (YamlImportException e) {
             importError = "Import failed: " + e.getMessage();
+            appContext.setStatusMessage(importError);
+            logger.error("Bio Import failed ", e);
         }
     }
 
@@ -138,8 +148,12 @@ public class BioEditorWidget {
             load(currentResumeId);
             rebuildTree();
             closeImportDialog();
+            appContext.setStatusMessage("Bio imported");
+            importError = null;
+
         } catch (Exception e) {
             importError = "Failed to save imported data: " + e.getMessage();
+            appContext.setStatusMessage(importError);
         }
     }
 

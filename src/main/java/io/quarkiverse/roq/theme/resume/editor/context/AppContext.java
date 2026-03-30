@@ -3,7 +3,10 @@ package io.quarkiverse.roq.theme.resume.editor.context;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
+import dev.tamboui.toolkit.elements.TextElement;
 import dev.tamboui.widgets.tabs.TabsState;
+
+import static dev.tamboui.toolkit.Toolkit.text;
 
 import io.quarkiverse.roq.theme.resume.editor.tui.BioEditorWidget;
 import io.quarkiverse.roq.theme.resume.editor.tui.ProfileEditorWidget;
@@ -28,10 +31,6 @@ public class AppContext {
         return tabsState;
     }
 
-    public String statusMessage() {
-        return statusMessage;
-    }
-
     public void setStatusMessage(String message) {
         this.statusMessage = message;
     }
@@ -44,11 +43,17 @@ public class AppContext {
         return profileEditor.isDirty() || socialEditor.isDirty() || bioEditor.isDirty();
     }
 
-    public String displayStatus() {
-        String display = statusMessage;
-        if (isDirty() && display.startsWith("Press")) {
-            display = "*UNSAVED CHANGES* " + display;
+    public boolean isError() {
+        return profileEditor.isError() || socialEditor.isError() || bioEditor.isError();
+    }
+
+    public TextElement displayStatus() {
+        if (isError()) {
+            return text("*ERROR* " + statusMessage).addClass("error");
         }
-        return display;
+        if (isDirty() && statusMessage.startsWith("Press")) {
+            return text("*UNSAVED CHANGES* " + statusMessage).addClass("warning");
+        }
+        return text(statusMessage).green();
     }
 }

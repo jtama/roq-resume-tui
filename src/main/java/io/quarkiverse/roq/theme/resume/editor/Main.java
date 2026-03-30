@@ -12,7 +12,6 @@ import dev.tamboui.toolkit.element.Element;
 import static dev.tamboui.toolkit.Toolkit.dock;
 import static dev.tamboui.toolkit.Toolkit.panel;
 import static dev.tamboui.toolkit.Toolkit.tabs;
-import static dev.tamboui.toolkit.Toolkit.text;
 
 import io.quarkiverse.roq.theme.resume.editor.context.AppContext;
 import io.quarkiverse.roq.theme.resume.editor.context.GlobalKeyHandler;
@@ -81,7 +80,7 @@ public class Main implements QuarkusApplication {
                 return dock()
                         .top(tabs)
                         .center(renderContent())
-                        .bottom(panel("Status", text(appContext.displayStatus()).green()))
+                        .bottom(panel("Status", appContext.displayStatus()))
                         .bottomHeight(Constraint.length(5))
                         .onKeyEvent(globalKeyHandler::handle);
             });
