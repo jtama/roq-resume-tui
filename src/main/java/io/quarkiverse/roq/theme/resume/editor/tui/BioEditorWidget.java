@@ -28,6 +28,7 @@ import io.quarkiverse.roq.theme.resume.editor.exception.YamlImportException;
 import io.quarkiverse.roq.theme.resume.editor.model.Bio;
 import io.quarkiverse.roq.theme.resume.editor.service.ResumeRepository;
 import io.quarkiverse.roq.theme.resume.editor.service.YamlImportService;
+import io.quarkiverse.roq.theme.resume.editor.util.LogoImageLoader;
 
 @ApplicationScoped
 public class BioEditorWidget {
@@ -492,42 +493,69 @@ public class BioEditorWidget {
                             .addClass("formfield").formState(form, "title")
                             .labelWidth(10).fill().id("bio-section-title")
                             .focusable().onSubmit(this::doSave));
-            case SelectedItem item -> column(
-                    formField("Title", form.textField("title"))
-                            .addClass("formfield").formState(form, "title")
-                            .labelWidth(10).fill().id("bio-item-title")
-                            .focusable().onSubmit(this::doSave),
-                    formField("Header", form.textField("header"))
-                            .addClass("formfield").formState(form, "header")
-                            .labelWidth(10).fill().id("bio-item-header")
-                            .focusable().onSubmit(this::doSave),
-                    formField("Link", form.textField("link"))
-                            .addClass("formfield").formState(form, "link")
-                            .labelWidth(10).fill().id("bio-item-link")
-                            .focusable().onSubmit(this::doSave),
-                    formField("Content", form.textField("content"))
-                            .addClass("formfield").formState(form, "content")
-                            .labelWidth(10).fill().id("bio-item-content")
-                            .focusable().onSubmit(this::doSave),
-                    formField("Tags (CSV)", form.textField("tags"))
-                            .addClass("formfield").formState(form, "tags")
-                            .labelWidth(12).fill().id("bio-item-tags")
-                            .focusable().onSubmit(this::doSave),
-                    text("--- Logo ---"),
-                    formField("Label", form.textField("logoLabel"))
-                            .addClass("formfield").formState(form, "logoLabel")
-                            .labelWidth(10).fill().id("bio-item-logo-label")
-                            .focusable().onSubmit(this::doSave),
-                    formField("Image URL", form.textField("logoImageUrl"))
-                            .addClass("formfield").formState(form, "logoImageUrl")
-                            .labelWidth(10).fill().id("bio-item-logo-image-url")
-                            .focusable().onSubmit(this::doSave),
-                    formField("Logo Link", form.textField("logoLink"))
-                            .addClass("formfield").formState(form, "logoLink")
-                            .labelWidth(10).fill().id("bio-item-logo-link")
-                            .focusable().onSubmit(this::doSave))
-                    .spacing(1);
+            case SelectedItem item -> {
+                var formElements = new ArrayList<Element>();
+                formElements.add(formField("Title", form.textField("title"))
+                        .addClass("formfield").formState(form, "title")
+                        .labelWidth(10).fill().id("bio-item-title")
+                        .focusable().onSubmit(this::doSave));
+                formElements.add(formField("Header", form.textField("header"))
+                        .addClass("formfield").formState(form, "header")
+                        .labelWidth(10).fill().id("bio-item-header")
+                        .focusable().onSubmit(this::doSave));
+                formElements.add(formField("Link", form.textField("link"))
+                        .addClass("formfield").formState(form, "link")
+                        .labelWidth(10).fill().id("bio-item-link")
+                        .focusable().onSubmit(this::doSave));
+                formElements.add(formField("Content", form.textField("content"))
+                        .addClass("formfield").formState(form, "content")
+                        .labelWidth(10).fill().id("bio-item-content")
+                        .focusable().onSubmit(this::doSave));
+                formElements.add(formField("Tags (CSV)", form.textField("tags"))
+                        .addClass("formfield").formState(form, "tags")
+                        .labelWidth(12).fill().id("bio-item-tags")
+                        .focusable().onSubmit(this::doSave));
+                formElements.add(text("--- Logo ---"));
+                formElements.add(formField("Label", form.textField("logoLabel"))
+                        .addClass("formfield").formState(form, "logoLabel")
+                        .labelWidth(10).fill().id("bio-item-logo-label")
+                        .focusable().onSubmit(this::doSave));
+                formElements.add(formField("Image URL", form.textField("logoImageUrl"))
+                        .addClass("formfield").formState(form, "logoImageUrl")
+                        .labelWidth(10).fill().id("bio-item-logo-image-url")
+                        .focusable().onSubmit(this::doSave));
+
+                // Add logo preview if available
+                var logoPreview = buildLogoPreview(item);
+                if (logoPreview != null) {
+                    formElements.add(logoPreview);
+                }
+
+                formElements.add(formField("Logo Link", form.textField("logoLink"))
+                        .addClass("formfield").formState(form, "logoLink")
+                        .labelWidth(10).fill().id("bio-item-logo-link")
+                        .focusable().onSubmit(this::doSave));
+
+                yield column(formElements.toArray(new Element[0]))
+                        .spacing(1);
+            }
         };
+    }
+
+    /// Build a logo preview element if the item has a logo.
+    /// Returns null if no logo or image cannot be loaded.
+    private Element buildLogoPreview(SelectedItem item) {
+        if (item.logo() == null || item.logo().imageUrl() == null || item.logo().imageUrl().isBlank()) {
+            return null;
+        }
+
+        var image = LogoImageLoader.loadLogoImage(item.logo().imageUrl());
+        if (image.isPresent()) {
+            // Return a text indicator that logo is loaded and valid
+            return text("[Logo] " + item.logo().imageUrl() + " ✓");
+        }
+
+        return text("[Logo] " + item.logo().imageUrl() + " (not found)");
     }
 
     private EventResult handleTreeKeyEvent(dev.tamboui.tui.event.KeyEvent key) {
