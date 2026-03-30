@@ -1,6 +1,5 @@
 package io.quarkiverse.roq.theme.resume.editor.service;
 
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
@@ -14,6 +13,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import io.quarkiverse.roq.theme.resume.editor.exception.YamlImportException;
 import io.quarkiverse.roq.theme.resume.editor.model.Bio;
 import io.quarkus.test.junit.QuarkusTest;
 
@@ -40,7 +40,7 @@ class YamlImportServiceTest {
     private Path emptyFile;
 
     @BeforeEach
-    void setup() throws IOException {
+    void setup() throws Exception {
         /// Create a valid YAML file with bio structure
         String validYaml = """
                 list:
@@ -81,7 +81,7 @@ class YamlImportServiceTest {
 
     @Test
     @DisplayName("Should import valid YAML from file")
-    void testImportValidYamlFile() throws IOException {
+    void testImportValidYamlFile() {
         Optional<Bio> result = importService.importFromFile(validYamlFile);
 
         assertTrue(result.isPresent(), "Should successfully parse valid YAML");
@@ -96,30 +96,30 @@ class YamlImportServiceTest {
     @DisplayName("Should fail gracefully on missing file")
     void testImportMissingFile() {
         Path nonExistent = tempDir.resolve("nonexistent.yaml");
-        assertThrows(IOException.class, () -> {
+        assertThrows(YamlImportException.class, () -> {
             importService.importFromFile(nonExistent);
-        }, "Should throw IOException for missing file");
+        }, "Should throw YamlImportException for missing file");
     }
 
     @Test
     @DisplayName("Should fail on invalid YAML syntax")
     void testImportInvalidYaml() {
-        assertThrows(IOException.class, () -> {
+        assertThrows(YamlImportException.class, () -> {
             importService.importFromFile(invalidYamlFile);
-        }, "Should throw IOException for invalid YAML");
+        }, "Should throw YamlImportException for invalid YAML");
     }
 
     @Test
     @DisplayName("Should fail on empty file")
     void testImportEmptyFile() {
-        assertThrows(IOException.class, () -> {
+        assertThrows(YamlImportException.class, () -> {
             importService.importFromFile(emptyFile);
-        }, "Should throw IOException for empty YAML");
+        }, "Should throw YamlImportException for empty YAML");
     }
 
     @Test
     @DisplayName("Should correctly import files via public importBio() method")
-    void testImportBioAutoDetection() throws IOException {
+    void testImportBioAutoDetection() {
         // Test file import via importBio() - should auto-detect it's a file path
         Optional<Bio> fileResult = importService.importBio(validYamlFile.toString());
         assertTrue(fileResult.isPresent(), "Should successfully import file");
@@ -133,18 +133,18 @@ class YamlImportServiceTest {
     @Test
     @DisplayName("Should reject empty or null source in importBio()")
     void testImportBioEmptySource() {
-        assertThrows(IOException.class, () -> {
+        assertThrows(YamlImportException.class, () -> {
             importService.importBio("");
-        }, "Should throw IOException for empty source");
+        }, "Should throw YamlImportException for empty source");
 
-        assertThrows(IOException.class, () -> {
+        assertThrows(YamlImportException.class, () -> {
             importService.importBio(null);
-        }, "Should throw IOException for null source");
+        }, "Should throw YamlImportException for null source");
     }
 
     @Test
     @DisplayName("Should parse nested items correctly")
-    void testNestedItemsParsing() throws IOException {
+    void testNestedItemsParsing() {
         String yamlWithSubItems = """
                 list:
                   - title: "Work"
@@ -156,7 +156,11 @@ class YamlImportServiceTest {
                             header: "Developer"
                 """;
         Path nestedFile = tempDir.resolve("nested.yaml");
-        Files.writeString(nestedFile, yamlWithSubItems);
+        try {
+            Files.writeString(nestedFile, yamlWithSubItems);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
 
         Optional<Bio> result = importService.importFromFile(nestedFile);
         assertTrue(result.isPresent());

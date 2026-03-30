@@ -1,6 +1,5 @@
 package io.quarkiverse.roq.theme.resume.editor.service;
 
-import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -15,6 +14,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 
+import io.quarkiverse.roq.theme.resume.editor.exception.YamlImportException;
 import io.quarkiverse.roq.theme.resume.editor.model.Bio;
 
 /// Service for importing Bio data from YAML sources (files and URLs).
@@ -36,19 +36,19 @@ public class YamlImportService {
     /// Import Bio from a local file path.
     /// @param path the Path to the YAML file
     /// @return Optional containing the parsed Bio, or empty if parsing fails
-    /// @throws IOException if the file cannot be read
-    public Optional<Bio> importFromFile(Path path) throws IOException {
+    /// @throws YamlImportException if the file cannot be read or parsed
+    public Optional<Bio> importFromFile(Path path) {
         if (!Files.exists(path)) {
-            throw new IOException("File not found: " + path);
+            throw new YamlImportException("File not found: " + path);
         }
         if (!Files.isReadable(path)) {
-            throw new IOException("File is not readable: " + path);
+            throw new YamlImportException("File is not readable: " + path);
         }
         try {
             var yamlContent = Files.readString(path);
             return Optional.of(yamlMapper.readValue(yamlContent, Bio.class));
-        } catch (IOException e) {
-            throw new IOException("Failed to parse YAML from file: " + path, e);
+        } catch (Exception e) {
+            throw new YamlImportException("Failed to parse YAML from file: " + path, e);
         }
     }
 
@@ -56,8 +56,8 @@ public class YamlImportService {
     /// Uses virtual threads internally for I/O-bound operations.
     /// @param url the HTTP/HTTPS URL to fetch YAML from
     /// @return Optional containing the parsed Bio, or empty if parsing fails
-    /// @throws IOException if the URL cannot be fetched or content is invalid
-    private Optional<Bio> importFromUrl(String url) throws IOException {
+    /// @throws YamlImportException if the URL cannot be fetched or content is invalid
+    private Optional<Bio> importFromUrl(String url) {
         try {
             var uri = URI.create(url);
             var request = HttpRequest.newBuilder(uri)
@@ -68,20 +68,22 @@ public class YamlImportService {
             var response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
             if (response.statusCode() != 200) {
-                throw new IOException("HTTP error: " + response.statusCode() + " from " + url);
+                throw new YamlImportException("HTTP error: " + response.statusCode() + " from " + url);
             }
 
             var yamlContent = response.body();
             if (yamlContent.isBlank()) {
-                throw new IOException("Empty response body from URL: " + url);
+                throw new YamlImportException("Empty response body from URL: " + url);
             }
 
             return Optional.of(yamlMapper.readValue(yamlContent, Bio.class));
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new IOException("Request interrupted while fetching from URL: " + url, e);
-        } catch (IOException e) {
-            throw new IOException("Failed to import Bio from URL: " + url, e);
+            throw new YamlImportException("Request interrupted while fetching from URL: " + url, e);
+        } catch (YamlImportException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new YamlImportException("Failed to import Bio from URL: " + url, e);
         }
     }
 
@@ -97,10 +99,10 @@ public class YamlImportService {
     /// Automatically detects whether the source is a URL or file path.
     /// @param source file path or HTTP/HTTPS URL to import from
     /// @return Optional containing the parsed Bio, or empty if parsing fails
-    /// @throws IOException if the import fails for any reason
-    public Optional<Bio> importBio(String source) throws IOException {
+    /// @throws YamlImportException if the import fails for any reason
+    public Optional<Bio> importBio(String source) {
         if (source == null || source.isBlank()) {
-            throw new IOException("Source path or URL cannot be empty");
+            throw new YamlImportException("Source path or URL cannot be empty");
         }
 
         return isUrl(source)
