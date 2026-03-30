@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.Objects;
 
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 
 import org.jboss.logging.Logger;
 
@@ -33,20 +32,12 @@ import io.quarkiverse.roq.theme.resume.editor.service.YamlImportService;
 @ApplicationScoped
 public class BioEditorWidget {
 
-    @Inject
-    ResumeRepository repository;
-
-    @Inject
-    YamlImportService yamlImportService;
-
-    @Inject
-    ImportInputDialog importInputDialog;
-
-    @Inject
-    ImportPreviewDialog importPreviewDialog;
-
-    @Inject
-    AppContext appContext;
+    private final ResumeRepository repository;
+    private final YamlImportService yamlImportService;
+    private final ImportInputDialog importInputDialog;
+    private final ImportPreviewDialog importPreviewDialog;
+    private final AppContext appContext;
+    private final Logger logger;
 
     private final TreeElement<Object> treeEl = tree().id("bioTree").focusable();
     private final FormState form = FormState.builder()
@@ -59,8 +50,6 @@ public class BioEditorWidget {
             .textField("logoImageUrl", "")
             .textField("logoLink", "")
             .build();
-    @Inject
-    Logger logger;
 
     private Long currentResumeId;
     private Bio currentBio;
@@ -72,6 +61,21 @@ public class BioEditorWidget {
     private Selection selection = null;
 
     private String importError = null;
+
+    /// Constructor for CDI instantiation with dependency injection.
+    public BioEditorWidget(ResumeRepository repository,
+            YamlImportService yamlImportService,
+            ImportInputDialog importInputDialog,
+            ImportPreviewDialog importPreviewDialog,
+            AppContext appContext,
+            Logger logger) {
+        this.repository = repository;
+        this.yamlImportService = yamlImportService;
+        this.importInputDialog = importInputDialog;
+        this.importPreviewDialog = importPreviewDialog;
+        this.appContext = appContext;
+        this.logger = logger;
+    }
 
     public boolean isDirty() {
         return hasModifications;

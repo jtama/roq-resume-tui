@@ -1,5 +1,6 @@
 package io.quarkiverse.roq.theme.resume.editor.service;
 
+import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -98,8 +99,8 @@ public class YamlImportService {
     /// If the YAML root is an object with a 'list' key, deserializes normally.
     /// @param yamlContent the YAML content as a string
     /// @return the parsed Bio object
-    /// @throws Exception if parsing fails
-    private Bio parseBioFromYaml(String yamlContent) throws Exception {
+    /// @throws IOException if parsing fails
+    private Bio parseBioFromYaml(String yamlContent) throws IOException {
         JsonNode root = yamlMapper.readTree(yamlContent);
 
         // If root is an array, wrap it in Bio with the array as the list
