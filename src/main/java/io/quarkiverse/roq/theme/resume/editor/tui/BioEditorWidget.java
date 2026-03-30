@@ -17,14 +17,13 @@ import dev.tamboui.widgets.form.FormState;
 import dev.tamboui.widgets.tree.TreeNode;
 
 import static dev.tamboui.toolkit.Toolkit.column;
-import static dev.tamboui.toolkit.Toolkit.formField;
+import static dev.tamboui.toolkit.Toolkit.form;
 import static dev.tamboui.toolkit.Toolkit.panel;
 import static dev.tamboui.toolkit.Toolkit.row;
 import static dev.tamboui.toolkit.Toolkit.text;
 import static dev.tamboui.toolkit.Toolkit.tree;
 
 import io.quarkiverse.roq.theme.resume.editor.context.AppContext;
-import io.quarkiverse.roq.theme.resume.editor.element.ImageElement;
 import io.quarkiverse.roq.theme.resume.editor.exception.YamlImportException;
 import io.quarkiverse.roq.theme.resume.editor.model.Bio;
 import io.quarkiverse.roq.theme.resume.editor.service.ResumeRepository;
@@ -42,7 +41,7 @@ public class BioEditorWidget {
     private final Logger logger;
 
     private final TreeElement<Object> treeEl = tree().id("bioTree").focusable();
-    private final FormState form = FormState.builder()
+    private final FormState formState = FormState.builder()
             .textField("title", "")
             .textField("header", "")
             .textField("link", "")
@@ -92,7 +91,7 @@ public class BioEditorWidget {
 
     public void save() {
         if (selection != null) {
-            doSave();
+            doSave(formState);
         }
     }
 
@@ -180,29 +179,29 @@ public class BioEditorWidget {
         this.loaded = true;
     }
 
-    private void doSave() {
+    private void doSave(FormState formState) {
         if (selection == null)
             return;
 
         switch (selection) {
             case SelectedSection sec -> {
                 var original = new Bio.Section(sec.id(), sec.title(), sec.items());
-                var updated = new Bio.Section(sec.id(), form.textValue("title"), sec.items());
+                var updated = new Bio.Section(sec.id(), formState.textValue("title"), sec.items());
                 replaceInList(currentBio.list(), original, updated);
-                selection = new SelectedSection(sec.id(), form.textValue("title"), sec.items());
+                selection = new SelectedSection(sec.id(), formState.textValue("title"), sec.items());
             }
             case SelectedItem item -> {
-                List<String> tags = parseTags(form.textValue("tags"));
+                List<String> tags = parseTags(formState.textValue("tags"));
                 Bio.Logo logo = createLogoFromForm();
 
                 var original = new Bio.Item(item.id(), item.header(), item.title(), item.link(), item.content(),
                         item.logo(), item.collapsible(), item.collapsed(), item.ruler(), item.tags(), item.subItems());
-                var updated = new Bio.Item(item.id(), form.textValue("header"), form.textValue("title"),
-                        form.textValue("link"), form.textValue("content"), logo, item.collapsible(),
+                var updated = new Bio.Item(item.id(), formState.textValue("header"), formState.textValue("title"),
+                        formState.textValue("link"), formState.textValue("content"), logo, item.collapsible(),
                         item.collapsed(), item.ruler(), tags, item.subItems());
                 replaceInTree(currentBio.list(), original, updated);
-                selection = new SelectedItem(item.id(), form.textValue("header"), form.textValue("title"),
-                        form.textValue("link"), form.textValue("content"), logo, item.collapsible(),
+                selection = new SelectedItem(item.id(), formState.textValue("header"), formState.textValue("title"),
+                        formState.textValue("link"), formState.textValue("content"), logo, item.collapsible(),
                         item.collapsed(), item.ruler(), tags, item.subItems());
             }
         }
@@ -224,9 +223,9 @@ public class BioEditorWidget {
 
     /// Create a Logo object from the form fields, or null if all fields are empty.
     private Bio.Logo createLogoFromForm() {
-        String label = form.textValue("logoLabel");
-        String imageUrl = form.textValue("logoImageUrl");
-        String link = form.textValue("logoLink");
+        String label = formState.textValue("logoLabel");
+        String imageUrl = formState.textValue("logoImageUrl");
+        String link = formState.textValue("logoLink");
 
         // Return null if no logo data is provided
         if ((label == null || label.isBlank()) && (imageUrl == null || imageUrl.isBlank())) {
@@ -241,14 +240,14 @@ public class BioEditorWidget {
     }
 
     private void clearForm() {
-        form.setTextValue("title", "");
-        form.setTextValue("header", "");
-        form.setTextValue("link", "");
-        form.setTextValue("content", "");
-        form.setTextValue("tags", "");
-        form.setTextValue("logoLabel", "");
-        form.setTextValue("logoImageUrl", "");
-        form.setTextValue("logoLink", "");
+        formState.setTextValue("title", "");
+        formState.setTextValue("header", "");
+        formState.setTextValue("link", "");
+        formState.setTextValue("content", "");
+        formState.setTextValue("tags", "");
+        formState.setTextValue("logoLabel", "");
+        formState.setTextValue("logoImageUrl", "");
+        formState.setTextValue("logoLink", "");
     }
 
     private void populateForm() {
@@ -256,24 +255,24 @@ public class BioEditorWidget {
             return;
 
         switch (selection) {
-            case SelectedSection sec -> form.setTextValue("title", sec.title() != null ? sec.title() : "");
+            case SelectedSection sec -> formState.setTextValue("title", sec.title() != null ? sec.title() : "");
             case SelectedItem item -> {
                 clearForm();
-                form.setTextValue("title", item.title() != null ? item.title() : "");
-                form.setTextValue("header", item.header() != null ? item.header() : "");
-                form.setTextValue("link", item.link() != null ? item.link() : "");
-                form.setTextValue("content", item.content() != null ? item.content() : "");
-                form.setTextValue("tags", item.tags() != null ? String.join(",", item.tags()) : "");
+                formState.setTextValue("title", item.title() != null ? item.title() : "");
+                formState.setTextValue("header", item.header() != null ? item.header() : "");
+                formState.setTextValue("link", item.link() != null ? item.link() : "");
+                formState.setTextValue("content", item.content() != null ? item.content() : "");
+                formState.setTextValue("tags", item.tags() != null ? String.join(",", item.tags()) : "");
 
                 // Logo fields
                 if (item.logo() != null) {
-                    form.setTextValue("logoLabel", item.logo().label() != null ? item.logo().label() : "");
-                    form.setTextValue("logoImageUrl", item.logo().imageUrl() != null ? item.logo().imageUrl() : "");
-                    form.setTextValue("logoLink", item.logo().link() != null ? item.logo().link() : "");
+                    formState.setTextValue("logoLabel", item.logo().label() != null ? item.logo().label() : "");
+                    formState.setTextValue("logoImageUrl", item.logo().imageUrl() != null ? item.logo().imageUrl() : "");
+                    formState.setTextValue("logoLink", item.logo().link() != null ? item.logo().link() : "");
                 } else {
-                    form.setTextValue("logoLabel", "");
-                    form.setTextValue("logoImageUrl", "");
-                    form.setTextValue("logoLink", "");
+                    formState.setTextValue("logoLabel", "");
+                    formState.setTextValue("logoImageUrl", "");
+                    formState.setTextValue("logoLink", "");
                 }
             }
         }
@@ -495,55 +494,30 @@ public class BioEditorWidget {
         }
 
         return switch (selection) {
-            case SelectedSection sec -> column(
-                    formField("Title", form.textField("title"))
-                            .addClass("formfield").formState(form, "title")
-                            .labelWidth(10).fill().id("bio-section-title")
-                            .focusable().onSubmit(this::doSave));
-            case SelectedItem item -> {
-                var formElements = new ArrayList<Element>();
-                formElements.add(formField("Title", form.textField("title"))
-                        .addClass("formfield").formState(form, "title")
-                        .labelWidth(10).fill().id("bio-item-title")
-                        .focusable().onSubmit(this::doSave));
-                formElements.add(formField("Header", form.textField("header"))
-                        .addClass("formfield").formState(form, "header")
-                        .labelWidth(10).fill().id("bio-item-header")
-                        .focusable().onSubmit(this::doSave));
-                formElements.add(formField("Link", form.textField("link"))
-                        .addClass("formfield").formState(form, "link")
-                        .labelWidth(10).fill().id("bio-item-link")
-                        .focusable().onSubmit(this::doSave));
-                formElements.add(formField("Content", form.textField("content"))
-                        .addClass("formfield").formState(form, "content")
-                        .labelWidth(10).fill().id("bio-item-content")
-                        .focusable().onSubmit(this::doSave));
-                formElements.add(formField("Tags (CSV)", form.textField("tags"))
-                        .addClass("formfield").formState(form, "tags")
-                        .labelWidth(12).fill().id("bio-item-tags")
-                        .focusable().onSubmit(this::doSave));
-                formElements.add(text("--- Logo ---"));
-                formElements.add(formField("Label", form.textField("logoLabel"))
-                        .addClass("formfield").formState(form, "logoLabel")
-                        .labelWidth(10).fill().id("bio-item-logo-label")
-                        .focusable().onSubmit(this::doSave));
-                formElements.add(formField("Image URL", form.textField("logoImageUrl"))
-                        .addClass("formfield").formState(form, "logoImageUrl")
-                        .labelWidth(10).fill().id("bio-item-logo-image-url")
-                        .focusable().onSubmit(this::doSave));
-                formElements.add(formField("Logo Link", form.textField("logoLink"))
-                        .addClass("formfield").formState(form, "logoLink")
-                        .labelWidth(10).fill().id("bio-item-logo-link")
-                        .focusable().onSubmit(this::doSave));
-                // Add logo preview if available
-                var logoPreview = buildLogoPreview(item);
-                if (logoPreview != null) {
-                    formElements.add(logoPreview);
-                } else {
-                    formElements.removeIf(element -> element instanceof ImageElement<?>);
-                }
-
-                yield column(formElements.toArray(new Element[0]))
+            case SelectedSection _ -> form(formState)
+                    .labelWidth(10)
+                    .field("title", "Title")
+                    .id("Bio.Section")
+                    .focusable(true)
+                    .onSubmit(this::doSave);
+            case SelectedItem _ -> {
+                var form = form(formState)
+                        .labelWidth(10)
+                        .field("title", "Title")
+                        .field("header", "Header")
+                        .field("link", "Link")
+                        .field("content", "Content")
+                        .field("tags", "Tags (CSV)")
+                        .group("Logo")
+                        .field("logoLabel", "Label")
+                        .field("logoImageUrl", "Image URL")
+                        .field("logoLink", "Logo Link")
+                        .endGroup()
+                        .id("Bio.Item")
+                        .arrowNavigation(true)
+                        .focusable(true)
+                        .onSubmit(this::doSave);
+                yield column(form)
                         .spacing(1);
             }
         };
