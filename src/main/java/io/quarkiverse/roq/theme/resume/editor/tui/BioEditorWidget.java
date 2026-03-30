@@ -549,13 +549,14 @@ public class BioEditorWidget {
             return null;
         }
 
-        var image = LogoImageLoader.loadLogoImage(item.logo().imageUrl());
+        var imageUrl = item.logo().imageUrl();
+        var image = LogoImageLoader.loadLogoImage(imageUrl);
         if (image.isPresent()) {
             // Return a text indicator that logo is loaded and valid
-            return text("[Logo] " + item.logo().imageUrl() + " ✓");
+            return text("✓ Logo: " + imageUrl);
         }
 
-        return text("[Logo] " + item.logo().imageUrl() + " (not found)");
+        return text("⚠ Logo unavailable: " + imageUrl);
     }
 
     private EventResult handleTreeKeyEvent(dev.tamboui.tui.event.KeyEvent key) {

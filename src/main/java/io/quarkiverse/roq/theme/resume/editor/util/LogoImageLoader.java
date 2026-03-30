@@ -1,6 +1,5 @@
 package io.quarkiverse.roq.theme.resume.editor.util;
 
-import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Optional;
@@ -35,8 +34,8 @@ public class LogoImageLoader {
                     .scaling(ImageScaling.FIT)
                     .build();
             return Optional.of(image);
-        } catch (IOException e) {
-            logger.warn("Failed to load logo image from path: " + imagePath, e);
+        } catch (Exception e) {
+            logger.warn("Failed to load logo image from path: " + imagePath + " - " + e.getMessage());
             return Optional.empty();
         }
     }
