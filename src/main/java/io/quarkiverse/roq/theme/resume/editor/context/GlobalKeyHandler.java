@@ -39,6 +39,7 @@ public class GlobalKeyHandler {
             case 'x' -> handleSave();
             case 'a' -> handleAddDialog();
             case 'e' -> handleEditDialog();
+            case 'i' -> handleImport();
             case 'r', 'R', 'b', 'B', 'p', 'P', 's', 'S', 'h', 'H' -> handleTabNavigation(c);
             default -> {
                 appContext.resetStatusMessage();
@@ -80,6 +81,22 @@ public class GlobalKeyHandler {
     private EventResult handleEditDialog() {
         if (appContext.tabsState().selected() == 3 && !socialEditor.isDialogOpen()) {
             socialEditor.openEditDialog();
+            return EventResult.HANDLED;
+        }
+        return EventResult.UNHANDLED;
+    }
+
+    /// Handle bio import (only available in Bio tab).
+    /// Note: This is a global handler that only works if the widget doesn't consume the 'i' key.
+    private EventResult handleImport() {
+        Integer selected = appContext.tabsState().selected();
+        if (selected != null && selected == 1 && !bioEditor.isImportDialogOpen()) {
+            appContext.setStatusMessage("Import bio: enter file path or URL, then press 'i' again");
+            // TODO: Implement input dialog for file path / URL entry
+            // For now, this shows a message. Full implementation requires:
+            // 1. An input dialog widget
+            // 2. Or integration with system stdin
+            bioEditor.openImportDialog();
             return EventResult.HANDLED;
         }
         return EventResult.UNHANDLED;

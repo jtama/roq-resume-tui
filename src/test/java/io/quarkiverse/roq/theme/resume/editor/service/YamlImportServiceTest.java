@@ -1,0 +1,170 @@
+package io.quarkiverse.roq.theme.resume.editor.service;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Optional;
+
+import jakarta.inject.Inject;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+import io.quarkiverse.roq.theme.resume.editor.model.Bio;
+import io.quarkus.test.junit.QuarkusTest;
+
+/// Tests for YamlImportService.
+/// Tests cover:
+/// - Valid YAML file import via public importBio() method
+/// - Invalid/malformed YAML
+/// - Missing file handling
+/// - Empty file handling
+/// - Empty/null source handling
+/// - Nested items parsing
+@QuarkusTest
+@DisplayName("YamlImportService Tests")
+class YamlImportServiceTest {
+
+    @Inject
+    YamlImportService importService;
+
+    @TempDir
+    Path tempDir;
+
+    private Path validYamlFile;
+    private Path invalidYamlFile;
+    private Path emptyFile;
+
+    @BeforeEach
+    void setup() throws IOException {
+        /// Create a valid YAML file with bio structure
+        String validYaml = """
+                list:
+                  - title: "Experience"
+                    items:
+                      - header: "Senior Developer"
+                        title: "Acme Corp"
+                        link: "https://acme.com"
+                        content: "Worked on backend systems"
+                      - header: "Developer"
+                        title: "TechStart"
+                        link: "https://techstart.com"
+                        content: "Built web applications"
+                  - title: "Education"
+                    items:
+                      - header: "BS Computer Science"
+                        title: "State University"
+                        link: "https://university.edu"
+                        content: "Graduated with honors"
+                """;
+        validYamlFile = tempDir.resolve("valid_bio.yaml");
+        Files.writeString(validYamlFile, validYaml);
+
+        /// Create an invalid YAML file
+        String invalidYaml = """
+                list:
+                  - title: "Experience"
+                    items: [
+                      - header: "Senior Developer"  # Invalid YAML syntax
+                """;
+        invalidYamlFile = tempDir.resolve("invalid_bio.yaml");
+        Files.writeString(invalidYamlFile, invalidYaml);
+
+        /// Create an empty file
+        emptyFile = tempDir.resolve("empty.yaml");
+        Files.writeString(emptyFile, "");
+    }
+
+    @Test
+    @DisplayName("Should import valid YAML from file")
+    void testImportValidYamlFile() throws IOException {
+        Optional<Bio> result = importService.importFromFile(validYamlFile);
+
+        assertTrue(result.isPresent(), "Should successfully parse valid YAML");
+        Bio bio = result.get();
+        assertNotNull(bio.list(), "Bio should have sections");
+        assertEquals(2, bio.list().size(), "Should have 2 sections");
+        assertEquals("Experience", bio.list().get(0).title());
+        assertEquals("Education", bio.list().get(1).title());
+    }
+
+    @Test
+    @DisplayName("Should fail gracefully on missing file")
+    void testImportMissingFile() {
+        Path nonExistent = tempDir.resolve("nonexistent.yaml");
+        assertThrows(IOException.class, () -> {
+            importService.importFromFile(nonExistent);
+        }, "Should throw IOException for missing file");
+    }
+
+    @Test
+    @DisplayName("Should fail on invalid YAML syntax")
+    void testImportInvalidYaml() {
+        assertThrows(IOException.class, () -> {
+            importService.importFromFile(invalidYamlFile);
+        }, "Should throw IOException for invalid YAML");
+    }
+
+    @Test
+    @DisplayName("Should fail on empty file")
+    void testImportEmptyFile() {
+        assertThrows(IOException.class, () -> {
+            importService.importFromFile(emptyFile);
+        }, "Should throw IOException for empty YAML");
+    }
+
+    @Test
+    @DisplayName("Should correctly import files via public importBio() method")
+    void testImportBioAutoDetection() throws IOException {
+        // Test file import via importBio() - should auto-detect it's a file path
+        Optional<Bio> fileResult = importService.importBio(validYamlFile.toString());
+        assertTrue(fileResult.isPresent(), "Should successfully import file");
+
+        Bio bio = fileResult.get();
+        assertNotNull(bio.list(), "Bio should have sections");
+        assertEquals(2, bio.list().size(), "Should have 2 sections");
+        assertEquals("Experience", bio.list().get(0).title());
+    }
+
+    @Test
+    @DisplayName("Should reject empty or null source in importBio()")
+    void testImportBioEmptySource() {
+        assertThrows(IOException.class, () -> {
+            importService.importBio("");
+        }, "Should throw IOException for empty source");
+
+        assertThrows(IOException.class, () -> {
+            importService.importBio(null);
+        }, "Should throw IOException for null source");
+    }
+
+    @Test
+    @DisplayName("Should parse nested items correctly")
+    void testNestedItemsParsing() throws IOException {
+        String yamlWithSubItems = """
+                list:
+                  - title: "Work"
+                    items:
+                      - title: "Project A"
+                        header: "Tech Lead"
+                        subItems:
+                          - title: "Subproject A1"
+                            header: "Developer"
+                """;
+        Path nestedFile = tempDir.resolve("nested.yaml");
+        Files.writeString(nestedFile, yamlWithSubItems);
+
+        Optional<Bio> result = importService.importFromFile(nestedFile);
+        assertTrue(result.isPresent());
+        Bio bio = result.get();
+        Bio.Item rootItem = bio.list().get(0).items().get(0);
+        assertEquals("Project A", rootItem.title());
+        assertNotNull(rootItem.subItems());
+        assertEquals(1, rootItem.subItems().size());
+        assertEquals("Subproject A1", rootItem.subItems().get(0).title());
+    }
+}

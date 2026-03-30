@@ -1,5 +1,6 @@
 package io.quarkiverse.roq.theme.resume.editor.tui;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -24,12 +25,22 @@ import static dev.tamboui.toolkit.Toolkit.tree;
 
 import io.quarkiverse.roq.theme.resume.editor.model.Bio;
 import io.quarkiverse.roq.theme.resume.editor.service.ResumeRepository;
+import io.quarkiverse.roq.theme.resume.editor.service.YamlImportService;
 
 @Singleton
 public class BioEditorWidget {
 
     @Inject
     ResumeRepository repository;
+
+    @Inject
+    YamlImportService yamlImportService;
+
+    @Inject
+    ImportInputDialog importInputDialog;
+
+    @Inject
+    ImportPreviewDialog importPreviewDialog;
 
     private final TreeElement<Object> treeEl = tree().id("bioTree").focusable();
     private final FormState form = FormState.builder()
@@ -49,6 +60,10 @@ public class BioEditorWidget {
     private boolean hasModifications = false;
     private Selection selection = null;
 
+    /// Import dialog state
+    private boolean showImportDialog = false;
+    private String importError = null;
+
     public boolean isDirty() {
         return hasModifications;
     }
@@ -56,6 +71,75 @@ public class BioEditorWidget {
     public void save() {
         if (selection != null) {
             doSave();
+        }
+    }
+
+    /// Trigger the import dialog. Shows a prompt to enter file path or URL.
+    /// This method should be called when the user presses 'i' for import.
+    public void openImportDialog() {
+        if (currentResumeId == null) {
+            importError = "No resume selected";
+            return;
+        }
+
+        importInputDialog.open(
+                this::importBio,
+                this::closeImportDialog);
+        showImportDialog = true;
+        importError = null;
+    }
+
+    /// Check if any import dialog is open (input or preview).
+    public boolean isImportDialogOpen() {
+        return importInputDialog.isOpen() || importPreviewDialog.isOpen();
+    }
+
+    /// Close the import dialog.
+    public void closeImportDialog() {
+        showImportDialog = false;
+        importError = null;
+        importInputDialog.close();
+        importPreviewDialog.close();
+    }
+
+    /// Perform the import from file or URL.
+    /// @param source file path or HTTP/HTTPS URL
+    public void importBio(String source) {
+        if (currentResumeId == null) {
+            importError = "No resume selected";
+            return;
+        }
+
+        try {
+            var importedBio = yamlImportService.importBio(source);
+
+            if (importedBio.isEmpty()) {
+                importError = "Failed to parse YAML";
+                return;
+            }
+
+            // Show preview dialog
+            importPreviewDialog.open(
+                    importedBio.get(),
+                    () -> confirmImport(importedBio.get()),
+                    this::closeImportDialog);
+        } catch (IOException e) {
+            importError = "Import failed: " + e.getMessage();
+        }
+    }
+
+    /// Confirm and persist the imported Bio.
+    private void confirmImport(Bio importedBio) {
+        try {
+            // Merge with existing bio or replace
+            currentBio = importedBio;
+            repository.saveBio(currentResumeId, currentBio);
+            hasModifications = true;
+            load(currentResumeId);
+            rebuildTree();
+            closeImportDialog();
+        } catch (Exception e) {
+            importError = "Failed to save imported data: " + e.getMessage();
         }
     }
 
@@ -448,12 +532,14 @@ public class BioEditorWidget {
                     addNewSection();
                     yield EventResult.HANDLED;
                 }
-                if (key.isChar('i')) {
-                    var node = treeEl.selectedNode();
-                    if (node != null)
-                        addNewItem(node.data());
-                    yield EventResult.HANDLED;
-                }
+                /*
+                 * if (key.isChar('i')) {
+                 * var node = treeEl.selectedNode();
+                 * if (node != null)
+                 * addNewItem(node.data());
+                 * yield EventResult.HANDLED;
+                 * }
+                 */
                 if (key.isChar('d')) {
                     deleteSelected();
                     yield EventResult.HANDLED;
@@ -504,12 +590,22 @@ public class BioEditorWidget {
             rebuildTree();
         }
 
+        // Show import input dialog first
+        if (importInputDialog.isOpen()) {
+            return importInputDialog.render();
+        }
+
+        // Show import preview dialog if open
+        if (importPreviewDialog.isOpen()) {
+            return importPreviewDialog.render();
+        }
+
         treeEl.onKeyEvent(this::handleTreeKeyEvent);
 
         String footer = isSearching
                 ? "SEARCH: " + searchQuery
                 : (hasModifications ? "[MODIFIED] " : "")
-                        + "Press '/' search, Enter select, e edit, Tab edit+focus, Esc cancel, a add section, i add item, d delete";
+                        + "Press '/' search, Enter select, e edit, Tab edit+focus, Esc cancel, a add section, i add/import item, d delete";
 
         // @formatter:off
         return panel("Bio Editor",
