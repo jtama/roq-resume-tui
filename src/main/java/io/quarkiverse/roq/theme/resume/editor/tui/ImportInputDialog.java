@@ -70,7 +70,6 @@ public class ImportInputDialog {
                                 .validate(Validators.required())
                                 .showInlineErrors(true)
                                 .focusable()
-                                .onSubmit(this::handleSubmit)
                 )
                 .fill()
                 )
