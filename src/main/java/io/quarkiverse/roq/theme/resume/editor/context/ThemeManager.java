@@ -1,7 +1,10 @@
 package io.quarkiverse.roq.theme.resume.editor.context;
 
+import jakarta.enterprise.context.ApplicationScoped;
+
 import dev.tamboui.css.engine.StyleEngine;
 
+@ApplicationScoped
 public class ThemeManager {
 
     private StyleEngine styleEngine;
