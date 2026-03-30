@@ -3,6 +3,7 @@ package io.quarkiverse.roq.theme.resume.editor.tui;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 import jakarta.inject.Singleton;
 
@@ -29,10 +30,8 @@ public class ImportPreviewDialog {
     private final TreeElement<Object> previewTree = tree().id("importPreview").focusable();
     private boolean isOpen = false;
     private Bio previewData = null;
-    private Runnable onConfirm = () -> {
-    };
-    private Runnable onCancel = () -> {
-    };
+    private Runnable onConfirm;
+    private Runnable onCancel;
 
     /// Check if the dialog is currently open.
     public boolean isOpen() {
@@ -63,18 +62,25 @@ public class ImportPreviewDialog {
             return panel(""); // Empty panel when not open
         }
 
+        List<Element> dialogContent = new ArrayList<>();
+        dialogContent.add(text("Preview of data to be imported:"));
+        dialogContent.add(panel("Bio Data", previewTree).fill());
+
+        var logosInfo = buildLogosInfo();
+        if (logosInfo.isPresent()) {
+            dialogContent.add(text(""));
+            dialogContent.add(logosInfo.get());
+        }
+
         // @formatter:off
-        return dialog("Bio Import Preview (Press Enter to confirm, Escape to cancel)",
-                column(
-                        text("Preview of data to be imported:"),
-                        panel("", previewTree).fill()
-                )
+        return dialog("Bio Import Preview (Press 'Y' to confirm, Escape to cancel)",
+                column(dialogContent.toArray(new Element[0]))
                         .fill()
                 )
                 .length(500)
                 .width(800)
                 .onKeyEvent(key -> {
-                    if (key.isConfirm()) {
+                    if (key.isChar('y') || key.isChar('Y')) {
                         handleConfirm();
                         return EventResult.HANDLED;
                     }
@@ -85,6 +91,54 @@ public class ImportPreviewDialog {
                     return EventResult.UNHANDLED;
                 });
         // @formatter:on
+    }
+
+    /// Build text info about logos found in preview data.
+    private Optional<Element> buildLogosInfo() {
+        StringBuilder logosText = new StringBuilder("Logos found:\n");
+        boolean foundLogos = collectLogoInfo(previewData, logosText);
+
+        if (!foundLogos) {
+            return Optional.empty();
+        }
+
+        return Optional.of(text(logosText.toString()));
+    }
+
+    /// Recursively collect logo info as text.
+    private boolean collectLogoInfo(Bio bio, StringBuilder text) {
+        boolean found = false;
+        if (bio == null || bio.list() == null) {
+            return false;
+        }
+
+        for (Bio.Section section : bio.list()) {
+            if (section.items() != null) {
+                found = collectLogoInfoFromItems(section.items(), text) || found;
+            }
+        }
+
+        return found;
+    }
+
+    /// Recursively collect logo info from items.
+    private boolean collectLogoInfoFromItems(List<Bio.Item> items, StringBuilder text) {
+        boolean found = false;
+        for (Bio.Item item : items) {
+            if (item.logo() != null && item.logo().imageUrl() != null) {
+                String label = Objects.requireNonNullElse(item.logo().label(),
+                        Objects.requireNonNullElse(item.title(), "Logo"));
+                String url = item.logo().imageUrl();
+                text.append("  • ").append(label).append(" -> ").append(url).append("\n");
+                found = true;
+            }
+
+            // Recursively check sub-items
+            if (item.subItems() != null) {
+                found = collectLogoInfoFromItems(item.subItems(), text) || found;
+            }
+        }
+        return found;
     }
 
     /// Update the preview tree with Bio sections and items.
