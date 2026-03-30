@@ -171,4 +171,35 @@ class YamlImportServiceTest {
         assertEquals(1, rootItem.subItems().size());
         assertEquals("Subproject A1", rootItem.subItems().get(0).title());
     }
+
+    @Test
+    @DisplayName("Should import YAML with unwrapped list (no 'list:' key)")
+    void testImportUnwrappedList() {
+        String unwrappedYaml = """
+                - title: "Experience"
+                  items:
+                    - header: "Senior Dev"
+                      title: "Acme Corp"
+                      link: "https://acme.com"
+                - title: "Education"
+                  items:
+                    - header: "BS CS"
+                      title: "University"
+                      link: "https://university.edu"
+                """;
+        Path unwrappedFile = tempDir.resolve("unwrapped.yaml");
+        try {
+            Files.writeString(unwrappedFile, unwrappedYaml);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+
+        Optional<Bio> result = importService.importFromFile(unwrappedFile);
+        assertTrue(result.isPresent(), "Should successfully parse unwrapped YAML list");
+        Bio bio = result.get();
+        assertNotNull(bio.list(), "Bio should have sections");
+        assertEquals(2, bio.list().size(), "Should have 2 sections");
+        assertEquals("Experience", bio.list().get(0).title());
+        assertEquals("Education", bio.list().get(1).title());
+    }
 }

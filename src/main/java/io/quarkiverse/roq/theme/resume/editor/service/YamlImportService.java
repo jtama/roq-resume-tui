@@ -7,10 +7,12 @@ import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.List;
 import java.util.Optional;
 
 import jakarta.enterprise.context.ApplicationScoped;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 
@@ -34,6 +36,7 @@ public class YamlImportService {
     }
 
     /// Import Bio from a local file path.
+    /// Handles both wrapped (with 'list' key) and unwrapped (direct list) YAML formats.
     /// @param path the Path to the YAML file
     /// @return Optional containing the parsed Bio, or empty if parsing fails
     /// @throws YamlImportException if the file cannot be read or parsed
@@ -46,7 +49,9 @@ public class YamlImportService {
         }
         try {
             var yamlContent = Files.readString(path);
-            return Optional.of(yamlMapper.readValue(yamlContent, Bio.class));
+            return Optional.of(parseBioFromYaml(yamlContent));
+        } catch (YamlImportException e) {
+            throw e;
         } catch (Exception e) {
             throw new YamlImportException("Failed to parse YAML from file: " + path, e);
         }
@@ -54,6 +59,7 @@ public class YamlImportService {
 
     /// Import Bio from a remote URL (HTTP/HTTPS).
     /// Uses virtual threads internally for I/O-bound operations.
+    /// Handles both wrapped (with 'list' key) and unwrapped (direct list) YAML formats.
     /// @param url the HTTP/HTTPS URL to fetch YAML from
     /// @return Optional containing the parsed Bio, or empty if parsing fails
     /// @throws YamlImportException if the URL cannot be fetched or content is invalid
@@ -76,7 +82,7 @@ public class YamlImportService {
                 throw new YamlImportException("Empty response body from URL: " + url);
             }
 
-            return Optional.of(yamlMapper.readValue(yamlContent, Bio.class));
+            return Optional.of(parseBioFromYaml(yamlContent));
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new YamlImportException("Request interrupted while fetching from URL: " + url, e);
@@ -85,6 +91,27 @@ public class YamlImportService {
         } catch (Exception e) {
             throw new YamlImportException("Failed to import Bio from URL: " + url, e);
         }
+    }
+
+    /// Parse YAML content into Bio, handling both wrapped and unwrapped list formats.
+    /// If the YAML root is an array, wraps it in a Bio with the array as the list.
+    /// If the YAML root is an object with a 'list' key, deserializes normally.
+    /// @param yamlContent the YAML content as a string
+    /// @return the parsed Bio object
+    /// @throws Exception if parsing fails
+    private Bio parseBioFromYaml(String yamlContent) throws Exception {
+        JsonNode root = yamlMapper.readTree(yamlContent);
+
+        // If root is an array, wrap it in Bio with the array as the list
+        if (root.isArray()) {
+            List<Bio.Section> sections = yamlMapper.readValue(
+                    yamlMapper.writeValueAsString(root),
+                    yamlMapper.getTypeFactory().constructCollectionType(List.class, Bio.Section.class));
+            return new Bio(sections);
+        }
+
+        // Otherwise, expect standard object format with optional 'list' key
+        return yamlMapper.treeToValue(root, Bio.class);
     }
 
     /// Determine if the given string is a URL or a file path.
