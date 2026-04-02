@@ -76,14 +76,12 @@ public class Main implements QuarkusApplication {
                 .state(appContext.tabsState());
 
         try (var runner = ToolkitRunner.builder().styleEngine(styleEngine).build()) {
-            runner.run(() -> {
-                return dock()
-                        .top(tabs)
-                        .center(renderContent())
-                        .bottom(panel("Status", appContext.displayStatus()))
-                        .bottomHeight(Constraint.length(5))
-                        .onKeyEvent(globalKeyHandler::handle);
-            });
+            runner.run(() -> dock()
+                    .top(tabs)
+                    .center(renderContent())
+                    .bottom(panel("Status", appContext.displayStatus()))
+                    .bottomHeight(Constraint.length(5))
+                    .onKeyEvent(globalKeyHandler::handle));
         }
 
         shutdown();

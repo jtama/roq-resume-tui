@@ -24,6 +24,7 @@ import static dev.tamboui.toolkit.Toolkit.text;
 import static dev.tamboui.toolkit.Toolkit.tree;
 
 import io.quarkiverse.roq.theme.resume.editor.context.AppContext;
+import io.quarkiverse.roq.theme.resume.editor.element.ImageElement;
 import io.quarkiverse.roq.theme.resume.editor.exception.YamlImportException;
 import io.quarkiverse.roq.theme.resume.editor.model.Bio;
 import io.quarkiverse.roq.theme.resume.editor.service.ResumeRepository;
@@ -51,6 +52,7 @@ public class BioEditorWidget {
             .textField("logoImageUrl", "")
             .textField("logoLink", "")
             .build();
+    private final LogoImageLoader logoImageLoader;
 
     private Long currentResumeId;
     private Bio currentBio;
@@ -69,6 +71,7 @@ public class BioEditorWidget {
             ImportInputDialog importInputDialog,
             ImportPreviewDialog importPreviewDialog,
             AppContext appContext,
+            LogoImageLoader logoImageLoader,
             Logger logger) {
         this.repository = repository;
         this.yamlImportService = yamlImportService;
@@ -76,6 +79,7 @@ public class BioEditorWidget {
         this.importPreviewDialog = importPreviewDialog;
         this.appContext = appContext;
         this.logger = logger;
+        this.logoImageLoader = logoImageLoader;
     }
 
     public boolean isDirty() {
@@ -142,6 +146,7 @@ public class BioEditorWidget {
         } catch (YamlImportException e) {
             importError = "Import failed: " + e.getMessage();
             appContext.setStatusMessage(importError);
+            appContext.setException(e);
             logger.error("Bio Import failed ", e);
         }
     }
@@ -162,6 +167,7 @@ public class BioEditorWidget {
         } catch (Exception e) {
             importError = "Failed to save imported data: " + e.getMessage();
             appContext.setStatusMessage(importError);
+            appContext.setException(e);
         }
     }
 
@@ -252,6 +258,7 @@ public class BioEditorWidget {
         switch (selection) {
             case SelectedSection sec -> form.setTextValue("title", sec.title() != null ? sec.title() : "");
             case SelectedItem item -> {
+                clearForm();
                 form.setTextValue("title", item.title() != null ? item.title() : "");
                 form.setTextValue("header", item.header() != null ? item.header() : "");
                 form.setTextValue("link", item.link() != null ? item.link() : "");
@@ -524,17 +531,17 @@ public class BioEditorWidget {
                         .addClass("formfield").formState(form, "logoImageUrl")
                         .labelWidth(10).fill().id("bio-item-logo-image-url")
                         .focusable().onSubmit(this::doSave));
-
-                // Add logo preview if available
-                var logoPreview = buildLogoPreview(item);
-                if (logoPreview != null) {
-                    formElements.add(logoPreview);
-                }
-
                 formElements.add(formField("Logo Link", form.textField("logoLink"))
                         .addClass("formfield").formState(form, "logoLink")
                         .labelWidth(10).fill().id("bio-item-logo-link")
                         .focusable().onSubmit(this::doSave));
+                // Add logo preview if available
+                var logoPreview = buildLogoPreview(item);
+                if (logoPreview != null) {
+                    formElements.add(logoPreview);
+                } else {
+                    formElements.removeIf(element -> element instanceof ImageElement<?>);
+                }
 
                 yield column(formElements.toArray(new Element[0]))
                         .spacing(1);
@@ -550,13 +557,8 @@ public class BioEditorWidget {
         }
 
         var imageUrl = item.logo().imageUrl();
-        var image = LogoImageLoader.loadLogoImage(imageUrl);
-        if (image.isPresent()) {
-            // Return a text indicator that logo is loaded and valid
-            return text("✓ Logo: " + imageUrl);
-        }
-
-        return text("⚠ Logo unavailable: " + imageUrl);
+        var image = logoImageLoader.loadLogoImage(imageUrl, item.logo.label());
+        return image.orElse(text("⚠ Logo unavailable: " + imageUrl));
     }
 
     private EventResult handleTreeKeyEvent(dev.tamboui.tui.event.KeyEvent key) {

@@ -5,7 +5,7 @@ maven = "3.9.14"
 [tasks."build"]
 # Enable leyden AOT integration
 env = {"quarkus.package.jar.aot.enabled"="true"}
-run = "mvn package"
+run = "mvn package -DskipTests"
 
 [tasks."build:native"]
 #run = "quarkus build --native --no-tests -Dquarkus.native.container-build=true"

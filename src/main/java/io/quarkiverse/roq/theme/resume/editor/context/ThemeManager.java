@@ -16,7 +16,7 @@ public class ThemeManager {
         this.styleEngine = engine;
         try {
             styleEngine.loadStylesheet("catpuccin",
-                    Path.of("/Users/j.tama/projects/github/jtama/roq-resume-tui/src/main/resources/catpuccin.tcss"));
+                    Path.of("catpuccin.tcss"));
             //            styleEngine.loadStylesheet("everforest", "everforest.tcss");
         } catch (java.io.IOException e) {
             throw new RuntimeException("Failed to load stylesheets", e);

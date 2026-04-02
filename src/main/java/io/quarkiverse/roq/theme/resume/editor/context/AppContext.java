@@ -3,7 +3,9 @@ package io.quarkiverse.roq.theme.resume.editor.context;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
-import dev.tamboui.toolkit.elements.TextElement;
+import dev.tamboui.toolkit.element.Element;
+import dev.tamboui.toolkit.elements.GenericWidgetElement;
+import dev.tamboui.widgets.error.ErrorDisplay;
 import dev.tamboui.widgets.tabs.TabsState;
 
 import static dev.tamboui.toolkit.Toolkit.text;
@@ -26,6 +28,7 @@ public class AppContext {
 
     private final TabsState tabsState = new TabsState(0);
     private String statusMessage = "Press 'a' to add, 'x' to save, 't' to toggle theme, 'q' to exit";
+    private Exception exception;
 
     public TabsState tabsState() {
         return tabsState;
@@ -33,6 +36,10 @@ public class AppContext {
 
     public void setStatusMessage(String message) {
         this.statusMessage = message;
+    }
+
+    public void setException(Exception exception) {
+        this.exception = exception;
     }
 
     public void resetStatusMessage() {
@@ -47,9 +54,13 @@ public class AppContext {
         return profileEditor.isError() || socialEditor.isError() || bioEditor.isError();
     }
 
-    public TextElement displayStatus() {
+    public Element displayStatus() {
         if (isError()) {
-            return text("*ERROR* " + statusMessage).addClass("error");
+            return GenericWidgetElement.of(ErrorDisplay.builder()
+                    .error(exception)
+                    .title(" ERROR ")
+                    .footer(" Press 'q' to quit, arrows to scroll ")
+                    .build());
         }
         if (isDirty() && statusMessage.startsWith("Press")) {
             return text("*UNSAVED CHANGES* " + statusMessage).addClass("warning");
