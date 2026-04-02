@@ -209,4 +209,8 @@ public class SocialEditorWidget {
                 });
         // @formatter:on
     }
+
+    public boolean isError() {
+        return false;
+    }
 }

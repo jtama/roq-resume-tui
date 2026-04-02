@@ -23,7 +23,10 @@ $error: #e78284;
     color: $text;
 }
 
-/* Navigation Tabs */
+.error {
+    color: $error;
+}
+
 #nav {
     height: 3;
     color: $subtext;

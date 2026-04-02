@@ -171,4 +171,8 @@ public class ProfileEditorWidget {
         .fill();
         // @formatter:on
     }
+
+    public boolean isError() {
+        return false;
+    }
 }

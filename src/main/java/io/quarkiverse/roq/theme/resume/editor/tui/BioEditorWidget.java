@@ -4,8 +4,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-import jakarta.inject.Inject;
-import jakarta.inject.Singleton;
+import jakarta.enterprise.context.ApplicationScoped;
+
+import org.jboss.logging.Logger;
 
 import dev.tamboui.layout.Constraint;
 import dev.tamboui.toolkit.element.Element;
@@ -22,14 +23,23 @@ import static dev.tamboui.toolkit.Toolkit.row;
 import static dev.tamboui.toolkit.Toolkit.text;
 import static dev.tamboui.toolkit.Toolkit.tree;
 
+import io.quarkiverse.roq.theme.resume.editor.context.AppContext;
+import io.quarkiverse.roq.theme.resume.editor.element.ImageElement;
+import io.quarkiverse.roq.theme.resume.editor.exception.YamlImportException;
 import io.quarkiverse.roq.theme.resume.editor.model.Bio;
 import io.quarkiverse.roq.theme.resume.editor.service.ResumeRepository;
+import io.quarkiverse.roq.theme.resume.editor.service.YamlImportService;
+import io.quarkiverse.roq.theme.resume.editor.util.LogoImageLoader;
 
-@Singleton
+@ApplicationScoped
 public class BioEditorWidget {
 
-    @Inject
-    ResumeRepository repository;
+    private final ResumeRepository repository;
+    private final YamlImportService yamlImportService;
+    private final ImportInputDialog importInputDialog;
+    private final ImportPreviewDialog importPreviewDialog;
+    private final AppContext appContext;
+    private final Logger logger;
 
     private final TreeElement<Object> treeEl = tree().id("bioTree").focusable();
     private final FormState form = FormState.builder()
@@ -38,7 +48,11 @@ public class BioEditorWidget {
             .textField("link", "")
             .textField("content", "")
             .textField("tags", "")
+            .textField("logoLabel", "")
+            .textField("logoImageUrl", "")
+            .textField("logoLink", "")
             .build();
+    private final LogoImageLoader logoImageLoader;
 
     private Long currentResumeId;
     private Bio currentBio;
@@ -49,13 +63,111 @@ public class BioEditorWidget {
     private boolean hasModifications = false;
     private Selection selection = null;
 
+    private String importError = null;
+
+    /// Constructor for CDI instantiation with dependency injection.
+    public BioEditorWidget(ResumeRepository repository,
+            YamlImportService yamlImportService,
+            ImportInputDialog importInputDialog,
+            ImportPreviewDialog importPreviewDialog,
+            AppContext appContext,
+            LogoImageLoader logoImageLoader,
+            Logger logger) {
+        this.repository = repository;
+        this.yamlImportService = yamlImportService;
+        this.importInputDialog = importInputDialog;
+        this.importPreviewDialog = importPreviewDialog;
+        this.appContext = appContext;
+        this.logger = logger;
+        this.logoImageLoader = logoImageLoader;
+    }
+
     public boolean isDirty() {
         return hasModifications;
+    }
+
+    public boolean isError() {
+        return importError != null;
     }
 
     public void save() {
         if (selection != null) {
             doSave();
+        }
+    }
+
+    /// Trigger the import dialog. Shows a prompt to enter file path or URL.
+    /// This method should be called when the user presses 'i' for import.
+    public void openImportDialog() {
+        if (currentResumeId == null) {
+            importError = "No resume selected";
+            return;
+        }
+
+        importInputDialog.open(
+                this::importBio,
+                this::closeImportDialog);
+        importError = null;
+    }
+
+    /// Check if any import dialog is open (input or preview).
+    public boolean isImportDialogOpen() {
+        return importInputDialog.isOpen() || importPreviewDialog.isOpen();
+    }
+
+    /// Close the import dialog.
+    public void closeImportDialog() {
+        importError = null;
+        importInputDialog.close();
+        importPreviewDialog.close();
+    }
+
+    /// Perform the import from file or URL.
+    /// @param source file path or HTTP/HTTPS URL
+    public void importBio(String source) {
+        if (currentResumeId == null) {
+            importError = "No resume selected";
+            return;
+        }
+
+        try {
+            var importedBio = yamlImportService.importBio(source);
+
+            if (importedBio.isEmpty()) {
+                appContext.setStatusMessage("Failed to parse YAML");
+                return;
+            }
+
+            // Show preview dialog
+            importPreviewDialog.open(
+                    importedBio.get(),
+                    () -> confirmImport(importedBio.get()),
+                    this::closeImportDialog);
+        } catch (YamlImportException e) {
+            importError = "Import failed: " + e.getMessage();
+            appContext.setStatusMessage(importError);
+            appContext.setException(e);
+            logger.error("Bio Import failed ", e);
+        }
+    }
+
+    /// Confirm and persist the imported Bio.
+    private void confirmImport(Bio importedBio) {
+        try {
+            // Merge with existing bio or replace
+            currentBio = importedBio;
+            repository.saveBio(currentResumeId, currentBio);
+            hasModifications = true;
+            load(currentResumeId);
+            rebuildTree();
+            closeImportDialog();
+            appContext.setStatusMessage("Bio imported");
+            importError = null;
+
+        } catch (Exception e) {
+            importError = "Failed to save imported data: " + e.getMessage();
+            appContext.setStatusMessage(importError);
+            appContext.setException(e);
         }
     }
 
@@ -81,14 +193,16 @@ public class BioEditorWidget {
             }
             case SelectedItem item -> {
                 List<String> tags = parseTags(form.textValue("tags"));
+                Bio.Logo logo = createLogoFromForm();
+
                 var original = new Bio.Item(item.id(), item.header(), item.title(), item.link(), item.content(),
                         item.logo(), item.collapsible(), item.collapsed(), item.ruler(), item.tags(), item.subItems());
                 var updated = new Bio.Item(item.id(), form.textValue("header"), form.textValue("title"),
-                        form.textValue("link"), form.textValue("content"), item.logo(), item.collapsible(),
+                        form.textValue("link"), form.textValue("content"), logo, item.collapsible(),
                         item.collapsed(), item.ruler(), tags, item.subItems());
                 replaceInTree(currentBio.list(), original, updated);
                 selection = new SelectedItem(item.id(), form.textValue("header"), form.textValue("title"),
-                        form.textValue("link"), form.textValue("content"), item.logo(), item.collapsible(),
+                        form.textValue("link"), form.textValue("content"), logo, item.collapsible(),
                         item.collapsed(), item.ruler(), tags, item.subItems());
             }
         }
@@ -108,12 +222,33 @@ public class BioEditorWidget {
         return new ArrayList<>(List.of(tagsStr.split(",")));
     }
 
+    /// Create a Logo object from the form fields, or null if all fields are empty.
+    private Bio.Logo createLogoFromForm() {
+        String label = form.textValue("logoLabel");
+        String imageUrl = form.textValue("logoImageUrl");
+        String link = form.textValue("logoLink");
+
+        // Return null if no logo data is provided
+        if ((label == null || label.isBlank()) && (imageUrl == null || imageUrl.isBlank())) {
+            return null;
+        }
+
+        // Create logo with non-blank values
+        return new Bio.Logo(
+                label != null && !label.isBlank() ? label : null,
+                imageUrl != null && !imageUrl.isBlank() ? imageUrl : null,
+                link != null && !link.isBlank() ? link : null);
+    }
+
     private void clearForm() {
         form.setTextValue("title", "");
         form.setTextValue("header", "");
         form.setTextValue("link", "");
         form.setTextValue("content", "");
         form.setTextValue("tags", "");
+        form.setTextValue("logoLabel", "");
+        form.setTextValue("logoImageUrl", "");
+        form.setTextValue("logoLink", "");
     }
 
     private void populateForm() {
@@ -123,11 +258,23 @@ public class BioEditorWidget {
         switch (selection) {
             case SelectedSection sec -> form.setTextValue("title", sec.title() != null ? sec.title() : "");
             case SelectedItem item -> {
+                clearForm();
                 form.setTextValue("title", item.title() != null ? item.title() : "");
                 form.setTextValue("header", item.header() != null ? item.header() : "");
                 form.setTextValue("link", item.link() != null ? item.link() : "");
                 form.setTextValue("content", item.content() != null ? item.content() : "");
                 form.setTextValue("tags", item.tags() != null ? String.join(",", item.tags()) : "");
+
+                // Logo fields
+                if (item.logo() != null) {
+                    form.setTextValue("logoLabel", item.logo().label() != null ? item.logo().label() : "");
+                    form.setTextValue("logoImageUrl", item.logo().imageUrl() != null ? item.logo().imageUrl() : "");
+                    form.setTextValue("logoLink", item.logo().link() != null ? item.logo().link() : "");
+                } else {
+                    form.setTextValue("logoLabel", "");
+                    form.setTextValue("logoImageUrl", "");
+                    form.setTextValue("logoLink", "");
+                }
             }
         }
     }
@@ -353,29 +500,65 @@ public class BioEditorWidget {
                             .addClass("formfield").formState(form, "title")
                             .labelWidth(10).fill().id("bio-section-title")
                             .focusable().onSubmit(this::doSave));
-            case SelectedItem item -> column(
-                    formField("Title", form.textField("title"))
-                            .addClass("formfield").formState(form, "title")
-                            .labelWidth(10).fill().id("bio-item-title")
-                            .focusable().onSubmit(this::doSave),
-                    formField("Header", form.textField("header"))
-                            .addClass("formfield").formState(form, "header")
-                            .labelWidth(10).fill().id("bio-item-header")
-                            .focusable().onSubmit(this::doSave),
-                    formField("Link", form.textField("link"))
-                            .addClass("formfield").formState(form, "link")
-                            .labelWidth(10).fill().id("bio-item-link")
-                            .focusable().onSubmit(this::doSave),
-                    formField("Content", form.textField("content"))
-                            .addClass("formfield").formState(form, "content")
-                            .labelWidth(10).fill().id("bio-item-content")
-                            .focusable().onSubmit(this::doSave),
-                    formField("Tags (CSV)", form.textField("tags"))
-                            .addClass("formfield").formState(form, "tags")
-                            .labelWidth(12).fill().id("bio-item-tags")
-                            .focusable().onSubmit(this::doSave))
-                    .spacing(1);
+            case SelectedItem item -> {
+                var formElements = new ArrayList<Element>();
+                formElements.add(formField("Title", form.textField("title"))
+                        .addClass("formfield").formState(form, "title")
+                        .labelWidth(10).fill().id("bio-item-title")
+                        .focusable().onSubmit(this::doSave));
+                formElements.add(formField("Header", form.textField("header"))
+                        .addClass("formfield").formState(form, "header")
+                        .labelWidth(10).fill().id("bio-item-header")
+                        .focusable().onSubmit(this::doSave));
+                formElements.add(formField("Link", form.textField("link"))
+                        .addClass("formfield").formState(form, "link")
+                        .labelWidth(10).fill().id("bio-item-link")
+                        .focusable().onSubmit(this::doSave));
+                formElements.add(formField("Content", form.textField("content"))
+                        .addClass("formfield").formState(form, "content")
+                        .labelWidth(10).fill().id("bio-item-content")
+                        .focusable().onSubmit(this::doSave));
+                formElements.add(formField("Tags (CSV)", form.textField("tags"))
+                        .addClass("formfield").formState(form, "tags")
+                        .labelWidth(12).fill().id("bio-item-tags")
+                        .focusable().onSubmit(this::doSave));
+                formElements.add(text("--- Logo ---"));
+                formElements.add(formField("Label", form.textField("logoLabel"))
+                        .addClass("formfield").formState(form, "logoLabel")
+                        .labelWidth(10).fill().id("bio-item-logo-label")
+                        .focusable().onSubmit(this::doSave));
+                formElements.add(formField("Image URL", form.textField("logoImageUrl"))
+                        .addClass("formfield").formState(form, "logoImageUrl")
+                        .labelWidth(10).fill().id("bio-item-logo-image-url")
+                        .focusable().onSubmit(this::doSave));
+                formElements.add(formField("Logo Link", form.textField("logoLink"))
+                        .addClass("formfield").formState(form, "logoLink")
+                        .labelWidth(10).fill().id("bio-item-logo-link")
+                        .focusable().onSubmit(this::doSave));
+                // Add logo preview if available
+                var logoPreview = buildLogoPreview(item);
+                if (logoPreview != null) {
+                    formElements.add(logoPreview);
+                } else {
+                    formElements.removeIf(element -> element instanceof ImageElement<?>);
+                }
+
+                yield column(formElements.toArray(new Element[0]))
+                        .spacing(1);
+            }
         };
+    }
+
+    /// Build a logo preview element if the item has a logo.
+    /// Returns null if no logo or image cannot be loaded.
+    private Element buildLogoPreview(SelectedItem item) {
+        if (item.logo() == null || item.logo().imageUrl() == null || item.logo().imageUrl().isBlank()) {
+            return null;
+        }
+
+        var imageUrl = item.logo().imageUrl();
+        var image = logoImageLoader.loadLogoImage(imageUrl, item.logo.label());
+        return image.orElse(text("⚠ Logo unavailable: " + imageUrl));
     }
 
     private EventResult handleTreeKeyEvent(dev.tamboui.tui.event.KeyEvent key) {
@@ -448,12 +631,14 @@ public class BioEditorWidget {
                     addNewSection();
                     yield EventResult.HANDLED;
                 }
-                if (key.isChar('i')) {
-                    var node = treeEl.selectedNode();
-                    if (node != null)
-                        addNewItem(node.data());
-                    yield EventResult.HANDLED;
-                }
+                /*
+                 * if (key.isChar('i')) {
+                 * var node = treeEl.selectedNode();
+                 * if (node != null)
+                 * addNewItem(node.data());
+                 * yield EventResult.HANDLED;
+                 * }
+                 */
                 if (key.isChar('d')) {
                     deleteSelected();
                     yield EventResult.HANDLED;
@@ -504,12 +689,22 @@ public class BioEditorWidget {
             rebuildTree();
         }
 
+        // Show import input dialog first
+        if (importInputDialog.isOpen()) {
+            return importInputDialog.render();
+        }
+
+        // Show import preview dialog if open
+        if (importPreviewDialog.isOpen()) {
+            return importPreviewDialog.render();
+        }
+
         treeEl.onKeyEvent(this::handleTreeKeyEvent);
 
         String footer = isSearching
                 ? "SEARCH: " + searchQuery
                 : (hasModifications ? "[MODIFIED] " : "")
-                        + "Press '/' search, Enter select, e edit, Tab edit+focus, Esc cancel, a add section, i add item, d delete";
+                        + "Press '/' search, Enter select, e edit, Tab edit+focus, Esc cancel, a add section, i add/import item, d delete";
 
         // @formatter:off
         return panel("Bio Editor",

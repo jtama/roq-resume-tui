@@ -47,6 +47,7 @@ resume.db.enc
 
 # Log files
 *.log
+*.log.*
 
 # Database files
 *.db

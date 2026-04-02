@@ -12,7 +12,6 @@ import dev.tamboui.toolkit.element.Element;
 import static dev.tamboui.toolkit.Toolkit.dock;
 import static dev.tamboui.toolkit.Toolkit.panel;
 import static dev.tamboui.toolkit.Toolkit.tabs;
-import static dev.tamboui.toolkit.Toolkit.text;
 
 import io.quarkiverse.roq.theme.resume.editor.context.AppContext;
 import io.quarkiverse.roq.theme.resume.editor.context.GlobalKeyHandler;
@@ -77,14 +76,12 @@ public class Main implements QuarkusApplication {
                 .state(appContext.tabsState());
 
         try (var runner = ToolkitRunner.builder().styleEngine(styleEngine).build()) {
-            runner.run(() -> {
-                return dock()
-                        .top(tabs)
-                        .center(renderContent())
-                        .bottom(panel("Status", text(appContext.displayStatus()).green()))
-                        .bottomHeight(Constraint.length(5))
-                        .onKeyEvent(globalKeyHandler::handle);
-            });
+            runner.run(() -> dock()
+                    .top(tabs)
+                    .center(renderContent())
+                    .bottom(panel("Status", appContext.displayStatus()))
+                    .bottomHeight(Constraint.length(5))
+                    .onKeyEvent(globalKeyHandler::handle));
         }
 
         shutdown();
